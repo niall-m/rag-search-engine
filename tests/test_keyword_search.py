@@ -64,6 +64,18 @@ class SearchMoviesByTitleTests(unittest.TestCase):
             ],
         )
 
+    def test_stems_query_tokens_before_matching(self) -> None:
+        self.assertEqual(
+            [movie["title"] for movie in search_movies_by_title("running")],
+            [
+                "Virginia's Run",
+                "Take the Money and Run",
+                "Woman on the Run",
+                "Honey, I Shrunk the Kids",
+                "Runaway Train",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
