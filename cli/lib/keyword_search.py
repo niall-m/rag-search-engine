@@ -8,8 +8,14 @@ def search_movies_by_title(
     movies = load_movies()
     results: list[Movie] = []
     for movie in movies:
-        if query in movie["title"]:
+        p_query = preprocess_text(query)
+        p_title = preprocess_text(movie["title"])
+        if p_query in p_title:
             results.append(movie)
             if len(results) >= limit:
                 break
     return results
+
+
+def preprocess_text(text: str) -> str:
+    return text.lower()
