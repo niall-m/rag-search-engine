@@ -1,10 +1,22 @@
 import unittest
 
-from cli.lib.keyword_search import search_movies_by_title
+from cli.lib.keyword_search import preprocess_text, search_movies_by_title, tokenize_text
 from cli.lib.search_utils import DEFAULT_SEARCH_LIMIT
 
 
 class SearchMoviesByTitleTests(unittest.TestCase):
+    def test_preprocess_text_lowercases_text(self) -> None:
+        self.assertEqual(preprocess_text("GrEaT"), "great")
+
+    def test_preprocess_text_removes_punctuation(self) -> None:
+        self.assertEqual(preprocess_text("Faster, Pussycat! Kill! Kill!"), "faster pussycat kill kill")
+
+    def test_tokenize_text_splits_on_whitespace_and_discards_empty_tokens(self) -> None:
+        self.assertEqual(
+            tokenize_text("  great   bear\tadventure  "),
+            ["great", "bear", "adventure"],
+        )
+
     def test_returns_first_five_matches_in_dataset_order(self) -> None:
         results = search_movies_by_title("Great")
 
@@ -20,12 +32,24 @@ class SearchMoviesByTitleTests(unittest.TestCase):
             ],
         )
 
-    def test_returns_all_matches_when_under_limit(self) -> None:
-        results = search_movies_by_title("Great Valley Adventure")
+    def test_search_is_case_insensitive(self) -> None:
+        self.assertEqual(
+            [movie["title"] for movie in search_movies_by_title("gReAt")],
+            [movie["title"] for movie in search_movies_by_title("great")],
+        )
+
+    def test_matches_any_query_token_against_part_of_a_title_token(self) -> None:
+        results = search_movies_by_title("furious fast")
 
         self.assertEqual(
             [movie["title"] for movie in results],
-            ["The Land Before Time II: The Great Valley Adventure"],
+            [
+                "Furious Seven",
+                "Fast and Furious",
+                "Faster, Pussycat! Kill! Kill!",
+                "Furious 6",
+                "Fast Times at Ridgemont High",
+            ],
         )
 
 
