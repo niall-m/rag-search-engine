@@ -52,6 +52,18 @@ class SearchMoviesByTitleTests(unittest.TestCase):
             ],
         )
 
+    def test_removes_stopwords_from_query_before_matching(self) -> None:
+        self.assertEqual(
+            [movie["title"] for movie in search_movies_by_title("the hot shot")],
+            [
+                "Hot Potato",
+                "Hot Shots! Part Deux",
+                "Hotel Chevalier",
+                "Hotel Berlin",
+                "Killshot",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

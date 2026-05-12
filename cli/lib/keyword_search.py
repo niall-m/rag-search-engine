@@ -1,6 +1,6 @@
 import string
 
-from .search_utils import DEFAULT_SEARCH_LIMIT, Movie, load_movies
+from .search_utils import DEFAULT_SEARCH_LIMIT, Movie, load_movies, load_stopwords
 
 
 PUNCT_TRANSLATION_TABLE: dict[int, int | None] = str.maketrans("", "", string.punctuation)
@@ -11,12 +11,15 @@ def search_movies_by_title(
     limit: int = DEFAULT_SEARCH_LIMIT,
 ) -> list[Movie]:
     movies = load_movies()
+    stopwords = load_stopwords()
     query_tokens = tokenize_text(query)
+    filtered_query_tokens = [t for t in query_tokens if t not in stopwords]
     results: list[Movie] = []
 
     for movie in movies:
         title_tokens = tokenize_text(movie["title"])
-        if has_matching_token(query_tokens, title_tokens):
+        filtered_title_tokens = [t for t in title_tokens if t not in stopwords]
+        if has_matching_token(filtered_query_tokens, filtered_title_tokens):
             results.append(movie)
             if len(results) >= limit:
                 break
