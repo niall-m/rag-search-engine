@@ -1,6 +1,11 @@
 import unittest
 
-from cli.lib.keyword_search import preprocess_text, search_movies_by_title, tokenize_text
+from cli.lib.keyword_search import (
+    InvertedIndex,
+    preprocess_text,
+    search_movies_by_title,
+    tokenize_text,
+)
 from cli.lib.search_utils import DEFAULT_SEARCH_LIMIT
 
 
@@ -9,7 +14,10 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         self.assertEqual(preprocess_text("GrEaT"), "great")
 
     def test_preprocess_text_removes_punctuation(self) -> None:
-        self.assertEqual(preprocess_text("Faster, Pussycat! Kill! Kill!"), "faster pussycat kill kill")
+        self.assertEqual(
+            preprocess_text("Faster, Pussycat! Kill! Kill!"),
+            "faster pussycat kill kill",
+        )
 
     def test_tokenize_text_splits_on_whitespace_and_discards_empty_tokens(self) -> None:
         self.assertEqual(
@@ -75,6 +83,17 @@ class SearchMoviesByTitleTests(unittest.TestCase):
                 "Runaway Train",
             ],
         )
+
+    def test_build_inverted_index(self) -> None:
+        inverted_index = InvertedIndex()
+
+        inverted_index.build()
+
+        docs = inverted_index.get_documents("merida")
+
+        self.assertGreater(len(docs), 0)
+        self.assertEqual(docs[0], 4651)
+        self.assertEqual(inverted_index.docmap[4651]["title"], "Brave")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 import argparse
 
-from lib.keyword_search import search_movies_by_title
+from lib.keyword_search import search_movies_by_title, build_inverted_index
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -11,8 +11,11 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
 
+    subparsers.add_parser("build", help="Build the InvertedIndex")
+
     search_parser = subparsers.add_parser("search", help="Search movies by title")
     search_parser.add_argument("query", type=str, help="Search query")
+
     return parser
 
 
@@ -28,8 +31,11 @@ def main() -> None:
     args = parser.parse_args()
 
     match args.command:
+        case "build":
+            build_inverted_index()
         case "search":
             run_search_command(args.query)
+
 
 if __name__ == "__main__":
     main()

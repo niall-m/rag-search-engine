@@ -1,10 +1,66 @@
+import os
+import pickle
 import string
 
 from nltk.stem import PorterStemmer
-from .search_utils import DEFAULT_SEARCH_LIMIT, Movie, load_movies, load_stopwords
+
+from .search_utils import (
+    CACHE_DIR,
+    INDEX_DISK_DATA_PATH,
+    DOCMAP_DISK_DATA_PATH,
+    DEFAULT_SEARCH_LIMIT,
+    Movie,
+    load_movies,
+    load_stopwords,
+)
 
 
-PUNCT_TRANSLATION_TABLE: dict[int, int | None] = str.maketrans("", "", string.punctuation)
+PUNCT_TRANSLATION_TABLE: dict[int, int | None] = str.maketrans(
+    "", "", string.punctuation
+)
+
+
+class InvertedIndex:
+    def __init__(self):
+        self.index: dict[str, set[int]] = {}
+        self.docmap: dict[int, Movie] = {}
+
+    def __repr__(self) -> str:
+        return f"InvertedIndex(tokens={len(self.index)}, documents={len(self.docmap)})"
+
+    def build(self) -> None:
+        movies = load_movies()
+        for movie in movies:
+            input_text = f"{movie['title']} {movie['description']}"
+            self.__add_document(movie["id"], input_text)
+            self.docmap[movie["id"]] = movie
+
+    def save(self) -> None:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(INDEX_DISK_DATA_PATH, "wb") as file:
+            pickle.dump(self.index, file)
+        with open(DOCMAP_DISK_DATA_PATH, "wb") as file:
+            pickle.dump(self.docmap, file)
+
+    def get_documents(self, term: str) -> list[int]:
+        doc_ids = self.index.get(term.lower(), set())
+        return sorted(doc_ids)
+
+    def __add_document(self, doc_id: int, text: str) -> None:
+        text_tokens = tokenize_text(text)
+        for token in set(text_tokens):
+            self.index.setdefault(token, set()).add(doc_id)
+
+
+def build_inverted_index() -> None:
+    print("Building inverted index...")
+    inverted_index = InvertedIndex()
+    inverted_index.build()
+    inverted_index.save()
+    print(inverted_index)
+    print(
+        f"First document for token 'merida' = {inverted_index.get_documents('merida')[0]}"
+    )
 
 
 def search_movies_by_title(
