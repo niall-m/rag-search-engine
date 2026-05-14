@@ -21,9 +21,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 def run_search_command(query: str) -> None:
     print(f"Searching for: {query}")
-    results = search_movies_by_title(query)
+    try:
+        results = search_movies_by_title(query)
+    except FileNotFoundError:
+        print("Search index not found. Run the build command first.")
+        return
+
     for index, movie in enumerate(results, start=1):
-        print(f"{index}. {movie['title']}")
+        print(f"{index}. {movie['title']} - ID: {movie['id']}")
 
 
 def main() -> None:

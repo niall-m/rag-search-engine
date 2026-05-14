@@ -42,13 +42,25 @@ class InvertedIndex:
         with open(DOCMAP_DISK_DATA_PATH, "wb") as file:
             pickle.dump(self.docmap, file)
 
+    def load(self) -> None:
+        if not os.path.exists(INDEX_DISK_DATA_PATH) or not os.path.exists(
+            DOCMAP_DISK_DATA_PATH
+        ):
+            raise FileNotFoundError
+
+        with open(INDEX_DISK_DATA_PATH, "rb") as file:
+            self.index = pickle.load(file)
+
+        with open(DOCMAP_DISK_DATA_PATH, "rb") as file:
+            self.docmap = pickle.load(file)
+
     def get_documents(self, term: str) -> list[int]:
         doc_ids = self.index.get(term.lower(), set())
         return sorted(doc_ids)
 
     def __add_document(self, doc_id: int, text: str) -> None:
-        text_tokens = tokenize_text(text)
-        for token in set(text_tokens):
+        tokens = tokenize_text(text)
+        for token in set(tokens):
             self.index.setdefault(token, set()).add(doc_id)
 
 
@@ -58,32 +70,31 @@ def build_inverted_index() -> None:
     inverted_index.build()
     inverted_index.save()
     print(inverted_index)
-    print(
-        f"First document for token 'merida' = {inverted_index.get_documents('merida')[0]}"
-    )
 
 
 def search_movies_by_title(
     query: str,
     limit: int = DEFAULT_SEARCH_LIMIT,
 ) -> list[Movie]:
-    movies = load_movies()
-    stopwords = load_stopwords()
-    query_tokens = tokenize_text(query)
-    filtered_query_tokens = [t for t in query_tokens if t not in stopwords]
-    stemmer = PorterStemmer()
-    stemmed_query_tokens = stem_tokens(filtered_query_tokens, stemmer)
+    inverted_index = InvertedIndex()
+    inverted_index.load()
 
+    seen_doc_ids: set[int] = set()
     results: list[Movie] = []
 
-    for movie in movies:
-        title_tokens = tokenize_text(movie["title"])
-        filtered_title_tokens = [t for t in title_tokens if t not in stopwords]
-        stemmed_title_tokens = stem_tokens(filtered_title_tokens, stemmer)
-        if has_matching_token(stemmed_query_tokens, stemmed_title_tokens):
-            results.append(movie)
+    query_tokens = tokenize_text(query)
+
+    for token in query_tokens:
+        matching_doc_ids = inverted_index.get_documents(token)
+        for doc_id in matching_doc_ids:
+            if doc_id in seen_doc_ids:
+                continue
+
+            results.append(inverted_index.docmap[doc_id])
+            seen_doc_ids.add(doc_id)
             if len(results) >= limit:
-                break
+                return results
+
     return results
 
 
@@ -93,16 +104,11 @@ def preprocess_text(text: str) -> str:
 
 def tokenize_text(text: str) -> list[str]:
     text = preprocess_text(text)
-    return [token for token in text.split() if token]
+    stopwords = load_stopwords()
+    stemmer = PorterStemmer()
 
+    tokens = [token for token in text.split() if token]
 
-def has_matching_token(query_tokens: list[str], title_tokens: list[str]) -> bool:
-    for query_token in query_tokens:
-        for title_token in title_tokens:
-            if query_token in title_token:
-                return True
-    return False
+    filtered_tokens = [t for t in tokens if t not in stopwords]
 
-
-def stem_tokens(tokens: list[str], stemmer: PorterStemmer) -> list[str]:
-    return [stemmer.stem(token) for token in tokens]
+    return [stemmer.stem(token) for token in filtered_tokens]

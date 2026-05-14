@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from cli.lib.keyword_search import (
     InvertedIndex,
@@ -10,6 +11,12 @@ from cli.lib.search_utils import DEFAULT_SEARCH_LIMIT
 
 
 class SearchMoviesByTitleTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        inverted_index = InvertedIndex()
+        inverted_index.build()
+        inverted_index.save()
+
     def test_preprocess_text_lowercases_text(self) -> None:
         self.assertEqual(preprocess_text("GrEaT"), "great")
 
@@ -19,81 +26,63 @@ class SearchMoviesByTitleTests(unittest.TestCase):
             "faster pussycat kill kill",
         )
 
-    def test_tokenize_text_splits_on_whitespace_and_discards_empty_tokens(self) -> None:
+    def test_tokenize_text_splits_filters_and_stems(self) -> None:
         self.assertEqual(
-            tokenize_text("  great   bear\tadventure  "),
-            ["great", "bear", "adventure"],
+            tokenize_text("  the   running\tbears  "),
+            ["run", "bear"],
         )
 
-    def test_returns_first_five_matches_in_dataset_order(self) -> None:
-        results = search_movies_by_title("Great")
+    def test_returns_first_five_results(self) -> None:
+        results = search_movies_by_title("brave")
 
         self.assertEqual(len(results), DEFAULT_SEARCH_LIMIT)
         self.assertEqual(
             [movie["title"] for movie in results],
             [
-                "The Land Before Time II: The Great Valley Adventure",
-                "The First Great Train Robbery",
-                "The Great Gatsby",
-                "The Great Ziegfeld",
-                "No Greater Love",
+                "Madrasapattinam",
+                "Imagining Argentina",
+                "Cymbeline",
+                "Gymkata",
+                "Hornblower: Retribution",
+            ],
+        )
+
+    def test_returns_first_five_results_for_second_query_token(self) -> None:
+        results = search_movies_by_title("nonsensetoken assault")
+
+        self.assertEqual(len(results), DEFAULT_SEARCH_LIMIT)
+        self.assertEqual(
+            [movie["title"] for movie in results],
+            [
+                "Klansman",
+                "The Chronicles of Narnia: Prince Caspian",
+                "Random Hearts",
+                "They Live",
+                "Strange Days",
             ],
         )
 
     def test_search_is_case_insensitive(self) -> None:
         self.assertEqual(
-            [movie["title"] for movie in search_movies_by_title("gReAt")],
-            [movie["title"] for movie in search_movies_by_title("great")],
+            [movie["title"] for movie in search_movies_by_title("BRAVE")],
+            [movie["title"] for movie in search_movies_by_title("brave")],
         )
 
-    def test_matches_any_query_token_against_part_of_a_title_token(self) -> None:
-        results = search_movies_by_title("furious fast")
-
-        self.assertEqual(
-            [movie["title"] for movie in results],
-            [
-                "Furious Seven",
-                "Fast and Furious",
-                "Faster, Pussycat! Kill! Kill!",
-                "Furious 6",
-                "Fast Times at Ridgemont High",
-            ],
-        )
-
-    def test_removes_stopwords_from_query_before_matching(self) -> None:
-        self.assertEqual(
-            [movie["title"] for movie in search_movies_by_title("the hot shot")],
-            [
-                "Hot Potato",
-                "Hot Shots! Part Deux",
-                "Hotel Chevalier",
-                "Hotel Berlin",
-                "Killshot",
-            ],
-        )
-
-    def test_stems_query_tokens_before_matching(self) -> None:
-        self.assertEqual(
-            [movie["title"] for movie in search_movies_by_title("running")],
-            [
-                "Virginia's Run",
-                "Take the Money and Run",
-                "Woman on the Run",
-                "Honey, I Shrunk the Kids",
-                "Runaway Train",
-            ],
-        )
-
-    def test_build_inverted_index(self) -> None:
+    def test_load_restores_saved_index_and_docmap(self) -> None:
         inverted_index = InvertedIndex()
 
-        inverted_index.build()
+        inverted_index.load()
 
-        docs = inverted_index.get_documents("merida")
+        self.assertGreater(len(inverted_index.index), 0)
+        self.assertGreater(len(inverted_index.docmap), 0)
+        self.assertEqual(inverted_index.docmap[167]["title"], "Madrasapattinam")
 
-        self.assertGreater(len(docs), 0)
-        self.assertEqual(docs[0], 4651)
-        self.assertEqual(inverted_index.docmap[4651]["title"], "Brave")
+    def test_load_raises_when_index_files_are_missing(self) -> None:
+        inverted_index = InvertedIndex()
+
+        with patch("cli.lib.keyword_search.os.path.exists", return_value=False):
+            with self.assertRaises(FileNotFoundError):
+                inverted_index.load()
 
 
 if __name__ == "__main__":
