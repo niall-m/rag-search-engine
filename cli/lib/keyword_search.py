@@ -64,7 +64,7 @@ class InvertedIndex:
             self.index.setdefault(token, set()).add(doc_id)
 
 
-def build_inverted_index() -> None:
+def build_command() -> None:
     print("Building inverted index...")
     inverted_index = InvertedIndex()
     inverted_index.build()
@@ -72,7 +72,7 @@ def build_inverted_index() -> None:
     print(inverted_index)
 
 
-def search_movies_by_title(
+def search_command(
     query: str,
     limit: int = DEFAULT_SEARCH_LIMIT,
 ) -> list[Movie]:

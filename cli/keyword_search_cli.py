@@ -1,6 +1,6 @@
 import argparse
 
-from lib.keyword_search import search_movies_by_title, build_inverted_index
+from lib.keyword_search import search_command, build_command
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -19,27 +19,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run_search_command(query: str) -> None:
-    print(f"Searching for: {query}")
-    try:
-        results = search_movies_by_title(query)
-    except FileNotFoundError:
-        print("Search index not found. Run the build command first.")
-        return
+def run_command(args: argparse.Namespace) -> None:
+    match args.command:
+        case "build":
+            build_command()
+        case "search":
+            print(f"Searching for: {args.query}")
+            try:
+                results = search_command(args.query)
+            except FileNotFoundError:
+                print("Search index not found. Run the build command first.")
+                return
 
-    for index, movie in enumerate(results, start=1):
-        print(f"{index}. {movie['title']} - ID: {movie['id']}")
+            for index, movie in enumerate(results, start=1):
+                print(f"{index}. {movie['title']} - ID: {movie['id']}")
 
 
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
-
-    match args.command:
-        case "build":
-            build_inverted_index()
-        case "search":
-            run_search_command(args.query)
+    run_command(args)
 
 
 if __name__ == "__main__":

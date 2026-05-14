@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 from cli.lib.keyword_search import (
     InvertedIndex,
+    search_command,
     preprocess_text,
-    search_movies_by_title,
     tokenize_text,
 )
 from cli.lib.search_utils import DEFAULT_SEARCH_LIMIT
@@ -33,7 +33,7 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         )
 
     def test_returns_first_five_results(self) -> None:
-        results = search_movies_by_title("brave")
+        results = search_command("brave")
 
         self.assertEqual(len(results), DEFAULT_SEARCH_LIMIT)
         self.assertEqual(
@@ -48,7 +48,7 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         )
 
     def test_returns_first_five_results_for_second_query_token(self) -> None:
-        results = search_movies_by_title("nonsensetoken assault")
+        results = search_command("nonsensetoken assault")
 
         self.assertEqual(len(results), DEFAULT_SEARCH_LIMIT)
         self.assertEqual(
@@ -64,8 +64,8 @@ class SearchMoviesByTitleTests(unittest.TestCase):
 
     def test_search_is_case_insensitive(self) -> None:
         self.assertEqual(
-            [movie["title"] for movie in search_movies_by_title("BRAVE")],
-            [movie["title"] for movie in search_movies_by_title("brave")],
+            [movie["title"] for movie in search_command("BRAVE")],
+            [movie["title"] for movie in search_command("brave")],
         )
 
     def test_load_restores_saved_index_and_docmap(self) -> None:
