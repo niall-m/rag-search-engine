@@ -2,15 +2,16 @@ import json
 from pathlib import Path
 from typing import TypedDict, cast
 
-DEFAULT_SEARCH_LIMIT = 5
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MOVIES_DATA_PATH = PROJECT_ROOT / "data" / "movies.json"
 STOPWORDS_DATA_PATH = PROJECT_ROOT / "data" / "stopwords.txt"
-
 CACHE_DIR = PROJECT_ROOT / "cache"
 INDEX_DISK_DATA_PATH = CACHE_DIR / "index.pkl"
 DOCMAP_DISK_DATA_PATH = CACHE_DIR / "docmap.pkl"
 TF_DISK_DATA_PATH = CACHE_DIR / "term_frequencies.pkl"
+
+DEFAULT_SEARCH_LIMIT = 5
+BM25_K1 = 1.5
 
 
 class Movie(TypedDict):

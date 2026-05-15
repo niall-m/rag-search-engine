@@ -1,5 +1,7 @@
 import unittest
 import math
+import subprocess
+import sys
 from io import StringIO
 from unittest.mock import patch
 
@@ -9,11 +11,12 @@ from cli.lib.keyword_search import (
     idf_command,
     tfidf_command,
     bm25_idf_command,
+    bm25_tf_command,
     search_command,
     preprocess_text,
     tokenize_text,
 )
-from cli.lib.search_utils import DEFAULT_SEARCH_LIMIT
+from cli.lib.search_utils import DEFAULT_SEARCH_LIMIT, BM25_K1, PROJECT_ROOT
 
 
 class SearchMoviesByTitleTests(unittest.TestCase):
@@ -167,6 +170,50 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         self.assertIn(
             f"BM25 IDF score of 'trapper': {expected_bm25_idf:.2f}",
             stdout.getvalue(),
+        )
+
+    def test_get_bm25_tf_returns_expected_score(self) -> None:
+        inverted_index = InvertedIndex()
+        inverted_index.load()
+
+        tf = inverted_index.get_tf(424, "trapper")
+        expected = (tf * (BM25_K1 + 1)) / (tf + BM25_K1)
+
+        self.assertAlmostEqual(inverted_index.get_bm25_tf(424, "trapper"), expected)
+
+    def test_bm25_tf_command_uses_provided_k1(self) -> None:
+        inverted_index = InvertedIndex()
+        inverted_index.load()
+        k1 = 3.0
+        expected_bm25_tf = inverted_index.get_bm25_tf(424, "trapper", k1)
+
+        with patch("sys.stdout", new_callable=StringIO) as stdout:
+            bm25_tf_command(424, "trapper", k1)
+
+        self.assertIn(
+            f"BM25 TF score of 'trapper' in document '424': {expected_bm25_tf:.2f}",
+            stdout.getvalue(),
+        )
+
+    def test_bm25tf_cli_command_accepts_optional_k1(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "cli/keyword_search_cli.py",
+                "bm25tf",
+                "424",
+                "trapper",
+                "3.0",
+            ],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertIn(
+            "BM25 TF score of 'trapper' in document '424': 2.29",
+            result.stdout,
         )
 
     def test_tfidf_command_prints_tfidf_score(self) -> None:

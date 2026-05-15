@@ -12,6 +12,7 @@ from .search_utils import (
     DOCMAP_DISK_DATA_PATH,
     TF_DISK_DATA_PATH,
     DEFAULT_SEARCH_LIMIT,
+    BM25_K1,
     Movie,
     load_movies,
     load_stopwords,
@@ -102,6 +103,11 @@ class InvertedIndex:
         term_doc_count = len(self.index.get(token, set()))
         return math.log((doc_count - term_doc_count + 0.5) / (term_doc_count + 0.5) + 1)
 
+    def get_bm25_tf(self, doc_id: int, term: str, k1=BM25_K1) -> float:
+        tf = self.get_tf(doc_id, term)
+        saturated_tf_score = (tf * (k1 + 1)) / (tf + k1)
+        return saturated_tf_score
+
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = tokenize_text(text)
         self.term_frequencies.setdefault(doc_id, Counter())
@@ -145,6 +151,13 @@ def bm25_idf_command(term: str) -> None:
     inverted_index.load()
     bm25_idf = inverted_index.get_bm25_idf(term)
     print(f"BM25 IDF score of '{term}': {bm25_idf:.2f}")
+
+
+def bm25_tf_command(doc_id: int, term: str, k1=BM25_K1) -> None:
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+    bm25_tf = inverted_index.get_bm25_tf(doc_id, term, k1)
+    print(f"BM25 TF score of '{term}' in document '{doc_id}': {bm25_tf:.2f}")
 
 
 def search_command(
