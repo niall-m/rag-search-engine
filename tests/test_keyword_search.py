@@ -8,6 +8,7 @@ from cli.lib.keyword_search import (
     tf_command,
     idf_command,
     tfidf_command,
+    bm25_idf_command,
     search_command,
     preprocess_text,
     tokenize_text,
@@ -132,6 +133,39 @@ class SearchMoviesByTitleTests(unittest.TestCase):
 
         self.assertIn(
             f"Inverse document frequency of 'trapper': {expected_idf:.2f}",
+            stdout.getvalue(),
+        )
+
+    def test_get_bm25_idf_returns_expected_score(self) -> None:
+        inverted_index = InvertedIndex()
+        inverted_index.load()
+
+        term_match_doc_count = len(inverted_index.get_documents("trapper"))
+        expected = math.log(
+            (len(inverted_index.docmap) - term_match_doc_count + 0.5)
+            / (term_match_doc_count + 0.5)
+            + 1
+        )
+
+        self.assertAlmostEqual(inverted_index.get_bm25_idf("trapper"), expected)
+
+    def test_get_bm25_idf_requires_single_token(self) -> None:
+        inverted_index = InvertedIndex()
+        inverted_index.load()
+
+        with self.assertRaises(ValueError):
+            inverted_index.get_bm25_idf("two terms")
+
+    def test_bm25_idf_command_prints_bm25_idf_score(self) -> None:
+        inverted_index = InvertedIndex()
+        inverted_index.load()
+        expected_bm25_idf = inverted_index.get_bm25_idf("trapper")
+
+        with patch("sys.stdout", new_callable=StringIO) as stdout:
+            bm25_idf_command("trapper")
+
+        self.assertIn(
+            f"BM25 IDF score of 'trapper': {expected_bm25_idf:.2f}",
             stdout.getvalue(),
         )
 

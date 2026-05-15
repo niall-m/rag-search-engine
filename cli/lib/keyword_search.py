@@ -93,6 +93,15 @@ class InvertedIndex:
     def get_tfidf(self, doc_id: int, term: str) -> float:
         return self.get_tf(doc_id, term) * self.get_idf(term)
 
+    def get_bm25_idf(self, term: str) -> float:
+        tokens = tokenize_text(term)
+        if len(tokens) != 1:
+            raise ValueError("term must be a single token")
+        token = tokens[0]
+        doc_count = len(self.docmap)
+        term_doc_count = len(self.index.get(token, set()))
+        return math.log((doc_count - term_doc_count + 0.5) / (term_doc_count + 0.5) + 1)
+
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = tokenize_text(text)
         self.term_frequencies.setdefault(doc_id, Counter())
@@ -110,7 +119,7 @@ def build_command() -> None:
     print(inverted_index)
 
 
-def tf_command(doc_id, term) -> None:
+def tf_command(doc_id: int, term: str) -> None:
     inverted_index = InvertedIndex()
     inverted_index.load()
     frequency = inverted_index.get_tf(doc_id, term)
@@ -124,11 +133,18 @@ def idf_command(term: str) -> None:
     print(f"Inverse document frequency of '{term}': {idf:.2f}")
 
 
-def tfidf_command(doc_id, term) -> None:
+def tfidf_command(doc_id: int, term: str) -> None:
     inverted_index = InvertedIndex()
     inverted_index.load()
     tf_idf = inverted_index.get_tfidf(doc_id, term)
     print(f"TF-IDF score of '{term}' in document '{doc_id}': {tf_idf:.2f}")
+
+
+def bm25_idf_command(term: str) -> None:
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+    bm25_idf = inverted_index.get_bm25_idf(term)
+    print(f"BM25 IDF score of '{term}': {bm25_idf:.2f}")
 
 
 def search_command(
