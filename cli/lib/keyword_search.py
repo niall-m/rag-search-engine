@@ -1,3 +1,4 @@
+import math
 import os
 import pickle
 import string
@@ -71,7 +72,7 @@ class InvertedIndex:
         if len(tokens) == 0:
             return 0
         if len(tokens) > 1:
-            raise Exception("Only one term token at a time, please")
+            raise ValueError("Only one term token at a time, please")
         token = tokens[0]
         if (
             doc_id not in self.term_frequencies
@@ -79,6 +80,15 @@ class InvertedIndex:
         ):
             return 0
         return self.term_frequencies[doc_id][token]
+
+    def get_idf(self, term: str) -> float:
+        tokens = tokenize_text(term)
+        if len(tokens) != 1:
+            raise ValueError("term must be a single token")
+        token = tokens[0]
+        total_doc_count = len(self.docmap)
+        term_match_doc_count = len(self.index.get(token, set()))
+        return math.log((total_doc_count + 1) / (term_match_doc_count + 1))
 
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = tokenize_text(text)
@@ -102,6 +112,13 @@ def tf_command(doc_id, term) -> None:
     inverted_index.load()
     frequency = inverted_index.get_tf(doc_id, term)
     print(f"Frequency of '{term}': {frequency}")
+
+
+def idf_command(term: str) -> None:
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+    idf = inverted_index.get_idf(term)
+    print(f"Inverse document frequency of '{term}': {idf:.2f}")
 
 
 def search_command(

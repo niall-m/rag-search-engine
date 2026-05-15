@@ -1,10 +1,12 @@
 import unittest
+import math
 from io import StringIO
 from unittest.mock import patch
 
 from cli.lib.keyword_search import (
     InvertedIndex,
     tf_command,
+    idf_command,
     search_command,
     preprocess_text,
     tokenize_text,
@@ -99,6 +101,38 @@ class SearchMoviesByTitleTests(unittest.TestCase):
             tf_command(424, "trapper")
 
         self.assertIn("Frequency of 'trapper': 4", stdout.getvalue())
+
+    def test_get_idf_returns_inverse_document_frequency(self) -> None:
+        inverted_index = InvertedIndex()
+
+        inverted_index.load()
+
+        term_match_doc_count = len(inverted_index.get_documents("trapper"))
+        expected = math.log(
+            (len(inverted_index.docmap) + 1) / (term_match_doc_count + 1)
+        )
+        self.assertAlmostEqual(inverted_index.get_idf("trapper"), expected)
+
+    def test_get_idf_returns_maximum_value_for_missing_term(self) -> None:
+        inverted_index = InvertedIndex()
+
+        inverted_index.load()
+
+        expected = math.log(len(inverted_index.docmap) + 1)
+        self.assertAlmostEqual(inverted_index.get_idf("nonsenseterm"), expected)
+
+    def test_idf_command_prints_inverse_document_frequency(self) -> None:
+        inverted_index = InvertedIndex()
+        inverted_index.load()
+        expected_idf = inverted_index.get_idf("trapper")
+
+        with patch("sys.stdout", new_callable=StringIO) as stdout:
+            idf_command("trapper")
+
+        self.assertIn(
+            f"Inverse document frequency of 'trapper': {expected_idf:.2f}",
+            stdout.getvalue(),
+        )
 
 
 if __name__ == "__main__":
