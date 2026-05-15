@@ -1,8 +1,10 @@
 import unittest
+from io import StringIO
 from unittest.mock import patch
 
 from cli.lib.keyword_search import (
     InvertedIndex,
+    tf_command,
     search_command,
     preprocess_text,
     tokenize_text,
@@ -75,6 +77,7 @@ class SearchMoviesByTitleTests(unittest.TestCase):
 
         self.assertGreater(len(inverted_index.index), 0)
         self.assertGreater(len(inverted_index.docmap), 0)
+        self.assertGreater(len(inverted_index.term_frequencies), 0)
         self.assertEqual(inverted_index.docmap[167]["title"], "Madrasapattinam")
 
     def test_load_raises_when_index_files_are_missing(self) -> None:
@@ -83,6 +86,19 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         with patch("cli.lib.keyword_search.os.path.exists", return_value=False):
             with self.assertRaises(FileNotFoundError):
                 inverted_index.load()
+
+    def test_get_tf_returns_document_term_frequency(self) -> None:
+        inverted_index = InvertedIndex()
+
+        inverted_index.load()
+
+        self.assertEqual(inverted_index.get_tf(424, "trapper"), 4)
+
+    def test_tf_command_prints_term_frequency(self) -> None:
+        with patch("sys.stdout", new_callable=StringIO) as stdout:
+            tf_command(424, "trapper")
+
+        self.assertIn("Frequency of 'trapper': 4", stdout.getvalue())
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 import argparse
 
-from lib.keyword_search import search_command, build_command
+from lib.keyword_search import search_command, build_command, tf_command
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -13,6 +13,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("build", help="Build the InvertedIndex")
 
+    tf_parser = subparsers.add_parser("tf", help="Get term frequency in target doc")
+    tf_parser.add_argument("doc_id", type=int)
+    tf_parser.add_argument("term", type=str)
+
     search_parser = subparsers.add_parser("search", help="Search movies by title")
     search_parser.add_argument("query", type=str, help="Search query")
 
@@ -23,6 +27,8 @@ def run_command(args: argparse.Namespace) -> None:
     match args.command:
         case "build":
             build_command()
+        case "tf":
+            tf_command(args.doc_id, args.term)
         case "search":
             print(f"Searching for: {args.query}")
             try:
