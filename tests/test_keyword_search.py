@@ -7,6 +7,7 @@ from cli.lib.keyword_search import (
     InvertedIndex,
     tf_command,
     idf_command,
+    tfidf_command,
     search_command,
     preprocess_text,
     tokenize_text,
@@ -131,6 +132,19 @@ class SearchMoviesByTitleTests(unittest.TestCase):
 
         self.assertIn(
             f"Inverse document frequency of 'trapper': {expected_idf:.2f}",
+            stdout.getvalue(),
+        )
+
+    def test_tfidf_command_prints_tfidf_score(self) -> None:
+        inverted_index = InvertedIndex()
+        inverted_index.load()
+        expected_tfidf = inverted_index.get_tfidf(424, "trapper")
+
+        with patch("sys.stdout", new_callable=StringIO) as stdout:
+            tfidf_command(424, "trapper")
+
+        self.assertIn(
+            f"TF-IDF score of 'trapper' in document '424': {expected_tfidf:.2f}",
             stdout.getvalue(),
         )
 

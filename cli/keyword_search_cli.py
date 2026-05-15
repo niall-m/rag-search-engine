@@ -1,6 +1,6 @@
 import argparse
 
-from lib.keyword_search import search_command, build_command, tf_command, idf_command
+from lib.keyword_search import search_command, build_command, tf_command, idf_command, tfidf_command
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -20,6 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
     idf_parser = subparsers.add_parser("idf", help="Get inverse document frequency of a term")
     idf_parser.add_argument("term", type=str)
 
+    tfidf_parser = subparsers.add_parser("tfidf", help="Get term frequency, inverse document frequency in target doc")
+    tfidf_parser.add_argument("doc_id", type=int)
+    tfidf_parser.add_argument("term", type=str)
+
     search_parser = subparsers.add_parser("search", help="Search movies by title")
     search_parser.add_argument("query", type=str, help="Search query")
 
@@ -34,6 +38,8 @@ def run_command(args: argparse.Namespace) -> None:
             tf_command(args.doc_id, args.term)
         case "idf":
             idf_command(args.term)
+        case "tfidf":
+            tfidf_command(args.doc_id, args.term)
         case "search":
             print(f"Searching for: {args.query}")
             try:

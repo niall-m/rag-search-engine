@@ -90,6 +90,9 @@ class InvertedIndex:
         term_match_doc_count = len(self.index.get(token, set()))
         return math.log((total_doc_count + 1) / (term_match_doc_count + 1))
 
+    def get_tfidf(self, doc_id: int, term: str) -> float:
+        return self.get_tf(doc_id, term) * self.get_idf(term)
+
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = tokenize_text(text)
         self.term_frequencies.setdefault(doc_id, Counter())
@@ -119,6 +122,13 @@ def idf_command(term: str) -> None:
     inverted_index.load()
     idf = inverted_index.get_idf(term)
     print(f"Inverse document frequency of '{term}': {idf:.2f}")
+
+
+def tfidf_command(doc_id, term) -> None:
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+    tf_idf = inverted_index.get_tfidf(doc_id, term)
+    print(f"TF-IDF score of '{term}' in document '{doc_id}': {tf_idf:.2f}")
 
 
 def search_command(
