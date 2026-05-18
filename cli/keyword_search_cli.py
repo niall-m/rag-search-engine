@@ -2,6 +2,7 @@ import argparse
 
 from lib.keyword_search import (
     BM25_K1,
+    BM25_B,
     search_command,
     build_command,
     tf_command,
@@ -48,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     bm25tf_parser.add_argument("doc_id", type=int)
     bm25tf_parser.add_argument("term", type=str)
     bm25tf_parser.add_argument("k1", type=float, nargs="?", default=BM25_K1)
+    bm25tf_parser.add_argument("b", type=float, nargs='?', default=BM25_B)
 
     search_parser = subparsers.add_parser("search", help="Search movies by title")
     search_parser.add_argument("query", type=str, help="Search query")

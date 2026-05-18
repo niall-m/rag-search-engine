@@ -11,8 +11,10 @@ from .search_utils import (
     INDEX_DISK_DATA_PATH,
     DOCMAP_DISK_DATA_PATH,
     TF_DISK_DATA_PATH,
+    DOC_LENGTHS_PATH,
     DEFAULT_SEARCH_LIMIT,
     BM25_K1,
+    BM25_B,
     Movie,
     load_movies,
     load_stopwords,
@@ -29,6 +31,7 @@ class InvertedIndex:
         self.index: dict[str, set[int]] = {}
         self.docmap: dict[int, Movie] = {}
         self.term_frequencies: dict[int, Counter] = {}
+        self.doc_lengths: dict[int, int] = {}
 
     def __repr__(self) -> str:
         return f"InvertedIndex(tokens={len(self.index)}, documents={len(self.docmap)})"
@@ -48,12 +51,15 @@ class InvertedIndex:
             pickle.dump(self.docmap, file)
         with open(TF_DISK_DATA_PATH, "wb") as file:
             pickle.dump(self.term_frequencies, file)
+        with open(DOC_LENGTHS_PATH, "wb") as file:
+            pickle.dump(self.doc_lengths, file)
 
     def load(self) -> None:
         if (
             not os.path.exists(INDEX_DISK_DATA_PATH)
             or not os.path.exists(DOCMAP_DISK_DATA_PATH)
             or not os.path.exists(TF_DISK_DATA_PATH)
+            or not os.path.exists(DOC_LENGTHS_PATH)
         ):
             raise FileNotFoundError
 
@@ -63,6 +69,8 @@ class InvertedIndex:
             self.docmap = pickle.load(file)
         with open(TF_DISK_DATA_PATH, "rb") as file:
             self.term_frequencies = pickle.load(file)
+        with open(DOC_LENGTHS_PATH, "rb") as file:
+            self.doc_lengths = pickle.load(file)
 
     def get_documents(self, term: str) -> list[int]:
         doc_ids = self.index.get(term.lower(), set())
@@ -103,18 +111,27 @@ class InvertedIndex:
         term_doc_count = len(self.index.get(token, set()))
         return math.log((doc_count - term_doc_count + 0.5) / (term_doc_count + 0.5) + 1)
 
-    def get_bm25_tf(self, doc_id: int, term: str, k1=BM25_K1) -> float:
+    def get_bm25_tf(self, doc_id: int, term: str, k1: float = BM25_K1, b: float = BM25_B) -> float:
         tf = self.get_tf(doc_id, term)
-        saturated_tf_score = (tf * (k1 + 1)) / (tf + k1)
+        doc_length = self.doc_lengths.get(doc_id)
+        doc_length = self.doc_lengths[doc_id]
+        avg_doc_length = self.__get_avg_doc_length()
+        length_norm = 1 - b + b * (doc_length / avg_doc_length)
+        saturated_tf_score = (tf * (k1 + 1)) / (tf + k1 * length_norm)
         return saturated_tf_score
 
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = tokenize_text(text)
-        self.term_frequencies.setdefault(doc_id, Counter())
-        for token in set(tokens):
+        counts = Counter(tokens)
+        self.term_frequencies[doc_id] = counts
+        self.doc_lengths[doc_id] = len(tokens)
+        for token in counts:
             self.index.setdefault(token, set()).add(doc_id)
-        for token in tokens:
-            self.term_frequencies[doc_id][token] += 1
+
+    def __get_avg_doc_length(self) -> float:
+        if len(self.doc_lengths) == 0:
+            return 0.0
+        return sum(self.doc_lengths.values()) / len(self.doc_lengths)
 
 
 def build_command() -> None:
@@ -153,10 +170,10 @@ def bm25_idf_command(term: str) -> None:
     print(f"BM25 IDF score of '{term}': {bm25_idf:.2f}")
 
 
-def bm25_tf_command(doc_id: int, term: str, k1=BM25_K1) -> None:
+def bm25_tf_command(doc_id: int, term: str, k1: float = BM25_K1, b: float = BM25_B) -> None:
     inverted_index = InvertedIndex()
     inverted_index.load()
-    bm25_tf = inverted_index.get_bm25_tf(doc_id, term, k1)
+    bm25_tf = inverted_index.get_bm25_tf(doc_id, term, k1, b)
     print(f"BM25 TF score of '{term}' in document '{doc_id}': {bm25_tf:.2f}")
 
 

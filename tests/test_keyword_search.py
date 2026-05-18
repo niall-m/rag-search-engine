@@ -19,12 +19,14 @@ from cli.lib.keyword_search import (
 from cli.lib.search_utils import (
     DEFAULT_SEARCH_LIMIT,
     BM25_K1,
+    BM25_B,
     PROJECT_ROOT,
     MOVIES_DATA_PATH,
     STOPWORDS_DATA_PATH,
     INDEX_DISK_DATA_PATH,
     DOCMAP_DISK_DATA_PATH,
     TF_DISK_DATA_PATH,
+    DOC_LENGTHS_PATH,
 )
 
 
@@ -32,6 +34,7 @@ CACHE_PATHS = (
     INDEX_DISK_DATA_PATH,
     DOCMAP_DISK_DATA_PATH,
     TF_DISK_DATA_PATH,
+    DOC_LENGTHS_PATH,
 )
 INDEX_SOURCE_PATHS = (
     MOVIES_DATA_PATH,
@@ -62,6 +65,8 @@ def load_or_build_test_index() -> InvertedIndex:
 
 
 class SearchMoviesByTitleTests(unittest.TestCase):
+    inverted_index: InvertedIndex
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.inverted_index = load_or_build_test_index()
@@ -143,6 +148,27 @@ class SearchMoviesByTitleTests(unittest.TestCase):
 
         self.assertIn("Frequency of 'trapper': 4", stdout.getvalue())
 
+    def test_get_avg_doc_length_returns_average_length(self) -> None:
+        expected = sum(self.inverted_index.doc_lengths.values()) / len(
+            self.inverted_index.doc_lengths
+        )
+        get_avg_doc_length = getattr(
+            self.inverted_index, "_InvertedIndex__get_avg_doc_length"
+        )
+
+        self.assertAlmostEqual(
+            get_avg_doc_length(),
+            expected,
+        )
+
+    def test_get_avg_doc_length_returns_zero_for_empty_index(self) -> None:
+        inverted_index = InvertedIndex()
+        get_avg_doc_length = getattr(
+            inverted_index, "_InvertedIndex__get_avg_doc_length"
+        )
+
+        self.assertEqual(get_avg_doc_length(), 0.0)
+
     def test_get_idf_returns_inverse_document_frequency(self) -> None:
         term_match_doc_count = len(self.inverted_index.get_documents("trapper"))
         expected = math.log(
@@ -192,7 +218,12 @@ class SearchMoviesByTitleTests(unittest.TestCase):
 
     def test_get_bm25_tf_returns_expected_score(self) -> None:
         tf = self.inverted_index.get_tf(424, "trapper")
-        expected = (tf * (BM25_K1 + 1)) / (tf + BM25_K1)
+        doc_length = self.inverted_index.doc_lengths[424]
+        avg_doc_length = sum(self.inverted_index.doc_lengths.values()) / len(
+            self.inverted_index.doc_lengths
+        )
+        length_norm = 1 - BM25_B + BM25_B * (doc_length / avg_doc_length)
+        expected = (tf * (BM25_K1 + 1)) / (tf + BM25_K1 * length_norm)
 
         self.assertAlmostEqual(self.inverted_index.get_bm25_tf(424, "trapper"), expected)
 
@@ -209,6 +240,7 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         )
 
     def test_bm25tf_cli_command_accepts_optional_k1(self) -> None:
+        expected_bm25_tf = self.inverted_index.get_bm25_tf(424, "trapper", 3.0)
         result = subprocess.run(
             [
                 sys.executable,
@@ -225,7 +257,7 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         )
 
         self.assertIn(
-            "BM25 TF score of 'trapper' in document '424': 2.29",
+            f"BM25 TF score of 'trapper' in document '424': {expected_bm25_tf:.2f}",
             result.stdout,
         )
 

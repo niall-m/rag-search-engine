@@ -9,9 +9,11 @@ CACHE_DIR = PROJECT_ROOT / "cache"
 INDEX_DISK_DATA_PATH = CACHE_DIR / "index.pkl"
 DOCMAP_DISK_DATA_PATH = CACHE_DIR / "docmap.pkl"
 TF_DISK_DATA_PATH = CACHE_DIR / "term_frequencies.pkl"
+DOC_LENGTHS_PATH = CACHE_DIR / "doc_lengths.pkl"
 
 DEFAULT_SEARCH_LIMIT = 5
 BM25_K1 = 1.5
+BM25_B = 0.75
 
 
 class Movie(TypedDict):
