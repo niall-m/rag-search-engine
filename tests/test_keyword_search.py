@@ -16,15 +16,55 @@ from cli.lib.keyword_search import (
     preprocess_text,
     tokenize_text,
 )
-from cli.lib.search_utils import DEFAULT_SEARCH_LIMIT, BM25_K1, PROJECT_ROOT
+from cli.lib.search_utils import (
+    DEFAULT_SEARCH_LIMIT,
+    BM25_K1,
+    PROJECT_ROOT,
+    MOVIES_DATA_PATH,
+    STOPWORDS_DATA_PATH,
+    INDEX_DISK_DATA_PATH,
+    DOCMAP_DISK_DATA_PATH,
+    TF_DISK_DATA_PATH,
+)
+
+
+CACHE_PATHS = (
+    INDEX_DISK_DATA_PATH,
+    DOCMAP_DISK_DATA_PATH,
+    TF_DISK_DATA_PATH,
+)
+INDEX_SOURCE_PATHS = (
+    MOVIES_DATA_PATH,
+    STOPWORDS_DATA_PATH,
+    PROJECT_ROOT / "cli" / "lib" / "keyword_search.py",
+)
+
+
+def cache_is_fresh() -> bool:
+    if any(not path.exists() for path in CACHE_PATHS):
+        return False
+
+    newest_source_mtime = max(path.stat().st_mtime for path in INDEX_SOURCE_PATHS)
+    oldest_cache_mtime = min(path.stat().st_mtime for path in CACHE_PATHS)
+    return oldest_cache_mtime >= newest_source_mtime
+
+
+def load_or_build_test_index() -> InvertedIndex:
+    inverted_index = InvertedIndex()
+
+    if cache_is_fresh():
+        inverted_index.load()
+        return inverted_index
+
+    inverted_index.build()
+    inverted_index.save()
+    return inverted_index
 
 
 class SearchMoviesByTitleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        inverted_index = InvertedIndex()
-        inverted_index.build()
-        inverted_index.save()
+        cls.inverted_index = load_or_build_test_index()
 
     def test_preprocess_text_lowercases_text(self) -> None:
         self.assertEqual(preprocess_text("GrEaT"), "great")
@@ -95,11 +135,7 @@ class SearchMoviesByTitleTests(unittest.TestCase):
                 inverted_index.load()
 
     def test_get_tf_returns_document_term_frequency(self) -> None:
-        inverted_index = InvertedIndex()
-
-        inverted_index.load()
-
-        self.assertEqual(inverted_index.get_tf(424, "trapper"), 4)
+        self.assertEqual(self.inverted_index.get_tf(424, "trapper"), 4)
 
     def test_tf_command_prints_term_frequency(self) -> None:
         with patch("sys.stdout", new_callable=StringIO) as stdout:
@@ -108,28 +144,18 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         self.assertIn("Frequency of 'trapper': 4", stdout.getvalue())
 
     def test_get_idf_returns_inverse_document_frequency(self) -> None:
-        inverted_index = InvertedIndex()
-
-        inverted_index.load()
-
-        term_match_doc_count = len(inverted_index.get_documents("trapper"))
+        term_match_doc_count = len(self.inverted_index.get_documents("trapper"))
         expected = math.log(
-            (len(inverted_index.docmap) + 1) / (term_match_doc_count + 1)
+            (len(self.inverted_index.docmap) + 1) / (term_match_doc_count + 1)
         )
-        self.assertAlmostEqual(inverted_index.get_idf("trapper"), expected)
+        self.assertAlmostEqual(self.inverted_index.get_idf("trapper"), expected)
 
     def test_get_idf_returns_maximum_value_for_missing_term(self) -> None:
-        inverted_index = InvertedIndex()
-
-        inverted_index.load()
-
-        expected = math.log(len(inverted_index.docmap) + 1)
-        self.assertAlmostEqual(inverted_index.get_idf("nonsenseterm"), expected)
+        expected = math.log(len(self.inverted_index.docmap) + 1)
+        self.assertAlmostEqual(self.inverted_index.get_idf("nonsenseterm"), expected)
 
     def test_idf_command_prints_inverse_document_frequency(self) -> None:
-        inverted_index = InvertedIndex()
-        inverted_index.load()
-        expected_idf = inverted_index.get_idf("trapper")
+        expected_idf = self.inverted_index.get_idf("trapper")
 
         with patch("sys.stdout", new_callable=StringIO) as stdout:
             idf_command("trapper")
@@ -140,29 +166,21 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         )
 
     def test_get_bm25_idf_returns_expected_score(self) -> None:
-        inverted_index = InvertedIndex()
-        inverted_index.load()
-
-        term_match_doc_count = len(inverted_index.get_documents("trapper"))
+        term_match_doc_count = len(self.inverted_index.get_documents("trapper"))
         expected = math.log(
-            (len(inverted_index.docmap) - term_match_doc_count + 0.5)
+            (len(self.inverted_index.docmap) - term_match_doc_count + 0.5)
             / (term_match_doc_count + 0.5)
             + 1
         )
 
-        self.assertAlmostEqual(inverted_index.get_bm25_idf("trapper"), expected)
+        self.assertAlmostEqual(self.inverted_index.get_bm25_idf("trapper"), expected)
 
     def test_get_bm25_idf_requires_single_token(self) -> None:
-        inverted_index = InvertedIndex()
-        inverted_index.load()
-
         with self.assertRaises(ValueError):
-            inverted_index.get_bm25_idf("two terms")
+            self.inverted_index.get_bm25_idf("two terms")
 
     def test_bm25_idf_command_prints_bm25_idf_score(self) -> None:
-        inverted_index = InvertedIndex()
-        inverted_index.load()
-        expected_bm25_idf = inverted_index.get_bm25_idf("trapper")
+        expected_bm25_idf = self.inverted_index.get_bm25_idf("trapper")
 
         with patch("sys.stdout", new_callable=StringIO) as stdout:
             bm25_idf_command("trapper")
@@ -173,19 +191,14 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         )
 
     def test_get_bm25_tf_returns_expected_score(self) -> None:
-        inverted_index = InvertedIndex()
-        inverted_index.load()
-
-        tf = inverted_index.get_tf(424, "trapper")
+        tf = self.inverted_index.get_tf(424, "trapper")
         expected = (tf * (BM25_K1 + 1)) / (tf + BM25_K1)
 
-        self.assertAlmostEqual(inverted_index.get_bm25_tf(424, "trapper"), expected)
+        self.assertAlmostEqual(self.inverted_index.get_bm25_tf(424, "trapper"), expected)
 
     def test_bm25_tf_command_uses_provided_k1(self) -> None:
-        inverted_index = InvertedIndex()
-        inverted_index.load()
         k1 = 3.0
-        expected_bm25_tf = inverted_index.get_bm25_tf(424, "trapper", k1)
+        expected_bm25_tf = self.inverted_index.get_bm25_tf(424, "trapper", k1)
 
         with patch("sys.stdout", new_callable=StringIO) as stdout:
             bm25_tf_command(424, "trapper", k1)
@@ -217,9 +230,7 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         )
 
     def test_tfidf_command_prints_tfidf_score(self) -> None:
-        inverted_index = InvertedIndex()
-        inverted_index.load()
-        expected_tfidf = inverted_index.get_tfidf(424, "trapper")
+        expected_tfidf = self.inverted_index.get_tfidf(424, "trapper")
 
         with patch("sys.stdout", new_callable=StringIO) as stdout:
             tfidf_command(424, "trapper")
