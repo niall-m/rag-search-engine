@@ -111,14 +111,36 @@ class InvertedIndex:
         term_doc_count = len(self.index.get(token, set()))
         return math.log((doc_count - term_doc_count + 0.5) / (term_doc_count + 0.5) + 1)
 
-    def get_bm25_tf(self, doc_id: int, term: str, k1: float = BM25_K1, b: float = BM25_B) -> float:
+    def get_bm25_tf(
+        self, doc_id: int, term: str, k1: float = BM25_K1, b: float = BM25_B
+    ) -> float:
         tf = self.get_tf(doc_id, term)
-        doc_length = self.doc_lengths.get(doc_id)
         doc_length = self.doc_lengths[doc_id]
         avg_doc_length = self.__get_avg_doc_length()
         length_norm = 1 - b + b * (doc_length / avg_doc_length)
         saturated_tf_score = (tf * (k1 + 1)) / (tf + k1 * length_norm)
         return saturated_tf_score
+
+    def bm25(self, doc_id: int, term: str) -> float:
+        bm25_tf = self.get_bm25_tf(doc_id, term)
+        bm25_idf = self.get_bm25_idf(term)
+        return bm25_tf * bm25_idf
+
+    def bm25_search(
+        self, query: str, limit: int = DEFAULT_SEARCH_LIMIT
+    ) -> list[tuple[int, float]]:
+        tokens = tokenize_text(query)
+        scores: dict[int, float] = {}
+
+        for doc_id in self.docmap:
+            running_total = 0.0
+            for token in tokens:
+                running_total += self.bm25(doc_id, token)
+            scores[doc_id] = running_total
+
+        ranked_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        return ranked_scores[:limit]
+
 
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = tokenize_text(text)

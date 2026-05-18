@@ -227,6 +227,22 @@ class SearchMoviesByTitleTests(unittest.TestCase):
 
         self.assertAlmostEqual(self.inverted_index.get_bm25_tf(424, "trapper"), expected)
 
+    def test_bm25_returns_tf_times_idf(self) -> None:
+        expected = self.inverted_index.get_bm25_tf(
+            424, "trapper"
+        ) * self.inverted_index.get_bm25_idf("trapper")
+
+        self.assertAlmostEqual(self.inverted_index.bm25(424, "trapper"), expected)
+
+    def test_bm25_search_returns_ranked_doc_scores(self) -> None:
+        results = self.inverted_index.bm25_search("trapper", limit=3)
+
+        self.assertEqual(len(results), 3)
+        self.assertTrue(all(isinstance(doc_id, int) for doc_id, _ in results))
+        self.assertTrue(all(isinstance(score, float) for _, score in results))
+        self.assertGreaterEqual(results[0][1], results[1][1])
+        self.assertGreaterEqual(results[1][1], results[2][1])
+
     def test_bm25_tf_command_uses_provided_k1(self) -> None:
         k1 = 3.0
         expected_bm25_tf = self.inverted_index.get_bm25_tf(424, "trapper", k1)
@@ -259,6 +275,27 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         self.assertIn(
             f"BM25 TF score of 'trapper' in document '424': {expected_bm25_tf:.2f}",
             result.stdout,
+        )
+
+    def test_bm25search_cli_formats_title_and_rounded_score(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "cli/keyword_search_cli.py",
+                "bm25search",
+                "trapper",
+                "--limit",
+                "1",
+            ],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertRegex(
+            result.stdout.strip(),
+            r"^1\. \(\d+\) .+ - Score: \d+\.\d{2}$",
         )
 
     def test_tfidf_command_prints_tfidf_score(self) -> None:
