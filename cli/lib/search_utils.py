@@ -11,6 +11,8 @@ DOCMAP_DISK_DATA_PATH = CACHE_DIR / "docmap.pkl"
 TF_DISK_DATA_PATH = CACHE_DIR / "term_frequencies.pkl"
 DOC_LENGTHS_PATH = CACHE_DIR / "doc_lengths.pkl"
 
+MOVIE_EMBEDDINGS_PATH = CACHE_DIR / "movie_embeddings.npy"
+
 DEFAULT_SEARCH_LIMIT = 5
 BM25_K1 = 1.5
 BM25_B = 0.75
