@@ -225,7 +225,9 @@ class SearchMoviesByTitleTests(unittest.TestCase):
         length_norm = 1 - BM25_B + BM25_B * (doc_length / avg_doc_length)
         expected = (tf * (BM25_K1 + 1)) / (tf + BM25_K1 * length_norm)
 
-        self.assertAlmostEqual(self.inverted_index.get_bm25_tf(424, "trapper"), expected)
+        self.assertAlmostEqual(
+            self.inverted_index.get_bm25_tf(424, "trapper"), expected
+        )
 
     def test_bm25_returns_tf_times_idf(self) -> None:
         expected = self.inverted_index.get_bm25_tf(

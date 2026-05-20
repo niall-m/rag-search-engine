@@ -20,9 +20,7 @@ class FakeModel:
         self.embeddings = embeddings
         self.encode_calls: list[tuple[list[str], bool]] = []
 
-    def encode(
-        self, texts: list[str], show_progress_bar: bool = False
-    ) -> np.ndarray:
+    def encode(self, texts: list[str], show_progress_bar: bool = False) -> np.ndarray:
         self.encode_calls.append((texts, show_progress_bar))
         return self.embeddings
 
@@ -47,16 +45,16 @@ class SemanticSearchTests(unittest.TestCase):
 
             with (
                 patch.object(semantic_search, "CACHE_DIR", cache_dir),
-                patch.object(
-                    semantic_search, "MOVIE_EMBEDDINGS_PATH", embeddings_path
-                ),
+                patch.object(semantic_search, "MOVIE_EMBEDDINGS_PATH", embeddings_path),
             ):
                 embeddings = search.build_embeddings(TEST_DOCUMENTS)
                 self.assertTrue(embeddings_path.exists())
 
         self.assertTrue(np.array_equal(embeddings, expected_embeddings))
         self.assertEqual(search.documents, TEST_DOCUMENTS)
-        self.assertEqual(search.document_map, {1: TEST_DOCUMENTS[0], 2: TEST_DOCUMENTS[1]})
+        self.assertEqual(
+            search.document_map, {1: TEST_DOCUMENTS[0], 2: TEST_DOCUMENTS[1]}
+        )
         self.assertEqual(
             model.encode_calls,
             [
@@ -70,7 +68,9 @@ class SemanticSearchTests(unittest.TestCase):
             ],
         )
 
-    def test_load_or_create_embeddings_uses_cached_embeddings_without_rebuilding(self) -> None:
+    def test_load_or_create_embeddings_uses_cached_embeddings_without_rebuilding(
+        self,
+    ) -> None:
         cached_embeddings = np.array([[10.0, 20.0], [30.0, 40.0]])
         search = self.create_search_instance()
 
@@ -79,9 +79,7 @@ class SemanticSearchTests(unittest.TestCase):
             np.save(embeddings_path, cached_embeddings)
 
             with (
-                patch.object(
-                    semantic_search, "MOVIE_EMBEDDINGS_PATH", embeddings_path
-                ),
+                patch.object(semantic_search, "MOVIE_EMBEDDINGS_PATH", embeddings_path),
                 patch.object(
                     search,
                     "build_embeddings",
@@ -93,7 +91,9 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertTrue(np.array_equal(embeddings, cached_embeddings))
         self.assertEqual(search.embeddings.shape, (2, 2))
         self.assertEqual(search.documents, TEST_DOCUMENTS)
-        self.assertEqual(search.document_map, {1: TEST_DOCUMENTS[0], 2: TEST_DOCUMENTS[1]})
+        self.assertEqual(
+            search.document_map, {1: TEST_DOCUMENTS[0], 2: TEST_DOCUMENTS[1]}
+        )
 
     def test_verify_embeddings_prints_document_and_embedding_sizes(self) -> None:
         fake_embeddings = np.zeros((2, 3))
@@ -103,9 +103,7 @@ class SemanticSearchTests(unittest.TestCase):
             patch.object(semantic_search, "SemanticSearch") as semantic_search_class,
             patch("sys.stdout", new_callable=StringIO) as stdout,
         ):
-            semantic_search_class.return_value.load_or_create_embeddings.return_value = (
-                fake_embeddings
-            )
+            semantic_search_class.return_value.load_or_create_embeddings.return_value = fake_embeddings
 
             semantic_search.verify_embeddings()
 

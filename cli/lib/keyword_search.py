@@ -141,7 +141,6 @@ class InvertedIndex:
         ranked_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
         return ranked_scores[:limit]
 
-
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = tokenize_text(text)
         counts = Counter(tokens)
@@ -192,7 +191,9 @@ def bm25_idf_command(term: str) -> None:
     print(f"BM25 IDF score of '{term}': {bm25_idf:.2f}")
 
 
-def bm25_tf_command(doc_id: int, term: str, k1: float = BM25_K1, b: float = BM25_B) -> None:
+def bm25_tf_command(
+    doc_id: int, term: str, k1: float = BM25_K1, b: float = BM25_B
+) -> None:
     inverted_index = InvertedIndex()
     inverted_index.load()
     bm25_tf = inverted_index.get_bm25_tf(doc_id, term, k1, b)
