@@ -12,6 +12,7 @@ from lib.keyword_search import (
     bm25_idf_command,
     bm25_tf_command,
 )
+from lib.search_utils import DEFAULT_SEARCH_LIMIT
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -57,7 +58,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     bm25search_parser.add_argument("query", type=str, help="Search query")
     bm25search_parser.add_argument(
-        "--limit", type=int, default=5, help="Maximum number of results to return"
+        "--limit",
+        type=int,
+        default=DEFAULT_SEARCH_LIMIT,
+        help="Maximum number of results to return",
     )
 
     search_parser = subparsers.add_parser("search", help="Search movies by title")

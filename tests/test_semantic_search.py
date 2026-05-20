@@ -111,6 +111,29 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertIn("Number of docs:   2", output)
         self.assertIn("Embeddings shape: 2 vectors in 3 dimensions", output)
 
+    def test_search_raises_if_embeddings_are_not_loaded(self) -> None:
+        search = self.create_search_instance()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "No embeddings loaded. Call `load_or_create_embeddings` first.",
+        ):
+            search.search("aliens", limit=2)
+
+    def test_search_returns_ranked_results_with_scores(self) -> None:
+        search = self.create_search_instance()
+        search.documents = TEST_DOCUMENTS
+        search.document_map = {1: TEST_DOCUMENTS[0], 2: TEST_DOCUMENTS[1]}
+        search.embeddings = np.array([[1.0, 0.0], [0.0, 1.0]])
+        search.generate_embedding = lambda query: np.array([1.0, 0.0])
+
+        results = search.search("first movie", limit=1)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["title"], "Arrival")
+        self.assertEqual(results[0]["description"], "Linguists meet aliens.")
+        self.assertAlmostEqual(results[0]["score"], 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()
