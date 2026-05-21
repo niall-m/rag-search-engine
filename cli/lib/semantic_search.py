@@ -1,3 +1,4 @@
+import re
 import os
 
 import numpy as np
@@ -9,6 +10,8 @@ from .search_utils import (
     DEFAULT_SEARCH_LIMIT,
     DEFAULT_CHUNK_SIZE,
     DEFAULT_CHUNK_OVERLAP,
+    DEFAULT_MAX_CHUNK_SIZE,
+    DEFAULT_SEMANTIC_CHUNK_OVERLAP,
     load_movies,
     Movie,
 )
@@ -176,4 +179,39 @@ def chunk_text(
 
     print(f"Chunking {len(text)} characters")
     for i, chunk in enumerate(chunks, 1):
+        print(f"{i}. {chunk}")
+
+
+def create_semantic_chunks(
+    text: str,
+    max_chunk_size: int = DEFAULT_MAX_CHUNK_SIZE,
+    overlap: int = DEFAULT_SEMANTIC_CHUNK_OVERLAP,
+) -> list[str]:
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    chunks = []
+
+    if max_chunk_size <= 0:
+        raise ValueError("max_chunk_size must be positive")
+    if overlap < 0 or overlap >= max_chunk_size:
+        raise ValueError("overlap must be between 0 and max_chunk_size - 1")
+
+    step = max_chunk_size - overlap
+    i = 0
+    while i < len(sentences):
+        chunks.append(" ".join(sentences[i : i + max_chunk_size]))
+        if i + max_chunk_size >= len(sentences):
+            break
+        i += step
+    return chunks
+
+
+def semantic_chunk(
+    text,
+    max_chunk_size: int = DEFAULT_MAX_CHUNK_SIZE,
+    overlap: int = DEFAULT_SEMANTIC_CHUNK_OVERLAP,
+):
+    semantic_chunks = create_semantic_chunks(text, max_chunk_size, overlap)
+
+    print(f"Semantically chunking {len(text)} characters")
+    for i, chunk in enumerate(semantic_chunks, 1):
         print(f"{i}. {chunk}")

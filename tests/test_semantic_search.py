@@ -153,6 +153,28 @@ class SemanticSearchTests(unittest.TestCase):
 
         self.assertEqual(short_chunks, ["only three words"])
 
+    def test_semantic_chunk_prints_expected_chunks(self) -> None:
+        text = (
+            "This is the first sentence. This is the second sentence. "
+            "This is the third sentence. This is the fourth sentence. "
+            "This is the fifth sentence."
+        )
+
+        with patch("sys.stdout", new_callable=StringIO) as stdout:
+            semantic_search.semantic_chunk(text, max_chunk_size=3, overlap=0)
+
+        output = stdout.getvalue()
+        self.assertIn("Semantically chunking 141 characters", output)
+        self.assertIn(
+            "1. This is the first sentence. This is the second sentence. "
+            "This is the third sentence.",
+            output,
+        )
+        self.assertIn(
+            "2. This is the fourth sentence. This is the fifth sentence.",
+            output,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
