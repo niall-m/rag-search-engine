@@ -8,8 +8,9 @@ from lib.semantic_search import (
     verify_embeddings,
     verify_model,
     semantic_search,
+    chunk_text
 )
-from lib.search_utils import DEFAULT_SEARCH_LIMIT
+from lib.search_utils import DEFAULT_SEARCH_LIMIT, DEFAULT_CHUNK_SIZE
 
 
 def main():
@@ -43,6 +44,10 @@ def main():
         help="Maximum number of results to return",
     )
 
+    chunk_parser = subparsers.add_parser("chunk", help="Split text into fixed-size chunks")
+    chunk_parser.add_argument("text", type=str, help="Text to chunk")
+    chunk_parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE, help="Number of words in each chunk")
+
     args = parser.parse_args()
 
     match args.command:
@@ -56,6 +61,8 @@ def main():
             verify_embeddings()
         case "search":
             semantic_search(args.query, args.limit)
+        case "chunk":
+            chunk_text(args.text, args.chunk_size)
 
 
 if __name__ == "__main__":

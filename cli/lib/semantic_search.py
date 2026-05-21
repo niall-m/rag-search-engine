@@ -7,6 +7,7 @@ from .search_utils import (
     CACHE_DIR,
     MOVIE_EMBEDDINGS_PATH,
     DEFAULT_SEARCH_LIMIT,
+    DEFAULT_CHUNK_SIZE,
     load_movies,
     Movie,
 )
@@ -140,3 +141,23 @@ def semantic_search(query, limit=DEFAULT_SEARCH_LIMIT):
         print(f"{i}. {result['title']} (score: {result['score']:.4f})")
         print(f"  {result['description']}")
         print()
+
+
+def create_chunks(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
+    words = text.split()
+    chunks = []
+    current_chunk: list[str] = []
+    for word in words:
+        if len(current_chunk) == chunk_size:
+            chunks.append(" ".join(current_chunk))
+            current_chunk = []
+        current_chunk.append(word)
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+    return chunks
+
+def chunk_text(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> None:
+    chunks = create_chunks(text, chunk_size)
+    print(f"Chunking {len(text)} characters")
+    for i, chunk in enumerate(chunks, 1):
+        print(f"{i}. {chunk}")
