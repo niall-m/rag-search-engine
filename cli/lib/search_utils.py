@@ -18,6 +18,7 @@ BM25_K1 = 1.5
 BM25_B = 0.75
 
 DEFAULT_CHUNK_SIZE = 200
+DEFAULT_CHUNK_OVERLAP = 40  # 20% of chunk size
 
 
 class Movie(TypedDict):

@@ -8,6 +8,7 @@ from .search_utils import (
     MOVIE_EMBEDDINGS_PATH,
     DEFAULT_SEARCH_LIMIT,
     DEFAULT_CHUNK_SIZE,
+    DEFAULT_CHUNK_OVERLAP,
     load_movies,
     Movie,
 )
@@ -143,21 +144,36 @@ def semantic_search(query, limit=DEFAULT_SEARCH_LIMIT):
         print()
 
 
-def create_chunks(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
+def create_chunks(
+    text: str,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    overlap: int = DEFAULT_CHUNK_OVERLAP,
+) -> list[str]:
     words = text.split()
     chunks = []
-    current_chunk: list[str] = []
-    for word in words:
-        if len(current_chunk) == chunk_size:
-            chunks.append(" ".join(current_chunk))
-            current_chunk = []
-        current_chunk.append(word)
-    if current_chunk:
-        chunks.append(" ".join(current_chunk))
+
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
+    if overlap < 0 or overlap >= chunk_size:
+        raise ValueError("overlap must be between 0 and chunk_size - 1")
+
+    step = chunk_size - overlap
+    i = 0
+    while i < len(words):
+        chunks.append(" ".join(words[i : i + chunk_size]))
+        if i + chunk_size >= len(words):
+            break
+        i += step
     return chunks
 
-def chunk_text(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> None:
-    chunks = create_chunks(text, chunk_size)
+
+def chunk_text(
+    text: str,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    overlap: int = DEFAULT_CHUNK_OVERLAP,
+) -> None:
+    chunks = create_chunks(text, chunk_size, overlap)
+
     print(f"Chunking {len(text)} characters")
     for i, chunk in enumerate(chunks, 1):
         print(f"{i}. {chunk}")

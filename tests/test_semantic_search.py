@@ -134,6 +134,25 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertEqual(results[0]["description"], "Linguists meet aliens.")
         self.assertAlmostEqual(results[0]["score"], 1.0)
 
+    def test_create_chunks_supports_overlap_and_short_inputs(self) -> None:
+        overlapping_chunks = semantic_search.create_chunks(
+            "This is a test text with two chunks",
+            chunk_size=5,
+            overlap=2,
+        )
+
+        self.assertEqual(
+            overlapping_chunks,
+            [
+                "This is a test text",
+                "test text with two chunks",
+            ],
+        )
+
+        short_chunks = semantic_search.create_chunks("only three words")
+
+        self.assertEqual(short_chunks, ["only three words"])
+
 
 if __name__ == "__main__":
     unittest.main()
