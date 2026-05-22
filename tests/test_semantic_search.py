@@ -379,6 +379,28 @@ class SemanticSearchTests(unittest.TestCase):
 
         self.assertEqual(short_chunks, ["only three words"])
 
+    def test_create_semantic_chunks_strips_text_and_sentences(self) -> None:
+        chunks = semantic_search.create_semantic_chunks(
+            " Leading and trailing spaces.  Next sentence. ",
+            max_chunk_size=1,
+            overlap=0,
+        )
+
+        self.assertEqual(chunks, ["Leading and trailing spaces.", "Next sentence."])
+
+    def test_create_semantic_chunks_keeps_single_sentence_without_punctuation(self) -> None:
+        chunks = semantic_search.create_semantic_chunks(
+            "Text without punctuation",
+            max_chunk_size=4,
+            overlap=0,
+        )
+
+        self.assertEqual(chunks, ["Text without punctuation"])
+
+    def test_create_semantic_chunks_returns_empty_list_for_blank_text(self) -> None:
+        self.assertEqual(semantic_search.create_semantic_chunks(" "), [])
+        self.assertEqual(semantic_search.create_semantic_chunks(""), [])
+
     def test_semantic_chunk_prints_expected_chunks(self) -> None:
         text = (
             "This is the first sentence. This is the second sentence. "
