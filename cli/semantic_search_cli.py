@@ -10,6 +10,7 @@ from lib.semantic_search import (
     semantic_search,
     chunk_text,
     semantic_chunk,
+    embed_chunks,
 )
 from lib.search_utils import (
     DEFAULT_SEARCH_LIMIT,
@@ -85,6 +86,8 @@ def main():
         help="Amount of words to overlap between chunks",
     )
 
+    subparsers.add_parser("embed_chunks", help="Embed the chunks!")
+
     args = parser.parse_args()
 
     match args.command:
@@ -102,6 +105,9 @@ def main():
             chunk_text(args.text, args.chunk_size, args.overlap)
         case "semantic_chunk":
             semantic_chunk(args.text, args.max_chunk_size, args.overlap)
+        case "embed_chunks":
+            embeddings = embed_chunks()
+            print(f"Generated {len(embeddings)} chunked embeddings")
 
 
 if __name__ == "__main__":

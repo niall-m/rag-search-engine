@@ -12,6 +12,8 @@ TF_DISK_DATA_PATH = CACHE_DIR / "term_frequencies.pkl"
 DOC_LENGTHS_PATH = CACHE_DIR / "doc_lengths.pkl"
 
 MOVIE_EMBEDDINGS_PATH = CACHE_DIR / "movie_embeddings.npy"
+CHUNK_EMBEDDINGS_PATH = CACHE_DIR / "chunk_embeddings.npy"
+CHUNK_METADATA_PATH = CACHE_DIR / "chunk_metadata.json"
 
 DEFAULT_SEARCH_LIMIT = 5
 BM25_K1 = 1.5
@@ -27,6 +29,12 @@ class Movie(TypedDict):
     id: int
     title: str
     description: str
+
+
+class ChunkMetadata(TypedDict):
+    movie_idx: int
+    chunk_idx: int
+    total_chunks: int
 
 
 def load_movies() -> list[Movie]:
