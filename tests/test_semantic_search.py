@@ -8,6 +8,7 @@ from unittest.mock import patch
 import numpy as np
 
 from cli.lib import semantic_search
+from cli.lib.search_utils import format_search_result
 
 
 TEST_DOCUMENTS = [
@@ -240,7 +241,10 @@ class SemanticSearchTests(unittest.TestCase):
             np.save(chunk_embeddings_path, cached_embeddings)
             with chunk_metadata_path.open("w", encoding="utf-8") as metadata_file:
                 json.dump(
-                    {"chunks": cached_chunks, "total_chunks": len(cached_chunks)},
+                    {
+                        "chunks": cached_chunks,
+                        "total_chunks": len(cached_chunks),
+                    },
                     metadata_file,
                 )
 
@@ -269,6 +273,91 @@ class SemanticSearchTests(unittest.TestCase):
         self.assertEqual(search.documents, TEST_DOCUMENTS)
         self.assertEqual(
             search.document_map, {1: TEST_DOCUMENTS[0], 2: TEST_DOCUMENTS[1]}
+        )
+
+    def test_load_or_create_chunk_embeddings_rebuilds_invalid_cached_metadata(
+        self,
+    ) -> None:
+        cached_embeddings = np.array([[10.0, 20.0], [30.0, 40.0]])
+        invalid_cached_chunks = [
+            {"movie_idx": 0, "chunk_idx": 0, "total_chunks": 2},
+        ]
+        rebuilt_embeddings = np.array([[1.0, 2.0]])
+        search = self.create_chunked_search_instance()
+
+        with TemporaryDirectory() as temp_dir:
+            cache_dir = Path(temp_dir)
+            chunk_embeddings_path = cache_dir / "chunk_embeddings.npy"
+            chunk_metadata_path = cache_dir / "chunk_metadata.json"
+            np.save(chunk_embeddings_path, cached_embeddings)
+            with chunk_metadata_path.open("w", encoding="utf-8") as metadata_file:
+                json.dump(
+                    {
+                        "chunks": invalid_cached_chunks,
+                        "total_chunks": len(invalid_cached_chunks),
+                    },
+                    metadata_file,
+                )
+
+            with (
+                patch.object(
+                    semantic_search,
+                    "CHUNK_EMBEDDINGS_PATH",
+                    chunk_embeddings_path,
+                ),
+                patch.object(
+                    semantic_search,
+                    "CHUNK_METADATA_PATH",
+                    chunk_metadata_path,
+                ),
+                patch.object(
+                    search,
+                    "build_chunk_embeddings",
+                    return_value=rebuilt_embeddings,
+                ) as build_chunk_embeddings,
+            ):
+                embeddings = search.load_or_create_chunk_embeddings(TEST_DOCUMENTS)
+
+        self.assertTrue(np.array_equal(embeddings, rebuilt_embeddings))
+        build_chunk_embeddings.assert_called_once_with(TEST_DOCUMENTS)
+
+    def test_search_chunks_returns_formatted_movie_results(self) -> None:
+        search = self.create_chunked_search_instance()
+        search.documents = TEST_DOCUMENTS
+        search.chunk_embeddings = np.array(
+            [
+                [1.0, 0.0],
+                [0.7, 0.3],
+                [0.0, 1.0],
+            ]
+        )
+        search.chunk_metadata = [
+            {"movie_idx": 0, "chunk_idx": 0, "total_chunks": 2},
+            {"movie_idx": 0, "chunk_idx": 1, "total_chunks": 2},
+            {"movie_idx": 1, "chunk_idx": 0, "total_chunks": 1},
+        ]
+        search.generate_embedding = lambda query: np.array([1.0, 0.0])
+
+        results = search.search_chunks("aliens", limit=2)
+
+        self.assertEqual(
+            results,
+            [
+                {
+                    "id": 1,
+                    "title": "Arrival",
+                    "document": "Linguists meet aliens.",
+                    "score": 1.0,
+                    "metadata": {},
+                },
+                {
+                    "id": 2,
+                    "title": "Primer",
+                    "document": "Engineers invent time travel.",
+                    "score": 0.0,
+                    "metadata": {},
+                },
+            ],
         )
 
     def test_create_chunks_supports_overlap_and_short_inputs(self) -> None:
@@ -326,6 +415,26 @@ class SemanticSearchTests(unittest.TestCase):
             embeddings = semantic_search.embed_chunks()
 
         self.assertTrue(np.array_equal(embeddings, fake_embeddings))
+
+    def test_format_search_result_accepts_metadata_dict(self) -> None:
+        result = format_search_result(
+            1,
+            "Arrival",
+            "Linguists meet aliens.",
+            0.9876,
+            metadata={"source": "chunked-search"},
+        )
+
+        self.assertEqual(
+            result,
+            {
+                "id": 1,
+                "title": "Arrival",
+                "document": "Linguists meet aliens.",
+                "score": 0.988,
+                "metadata": {"source": "chunked-search"},
+            },
+        )
 
 
 if __name__ == "__main__":
