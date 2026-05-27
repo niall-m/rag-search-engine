@@ -21,7 +21,7 @@ from .search_utils import (
     ChunkMetadata,
     Movie,
     load_movies,
-    SearchResult,
+    SemanticSearchResult,
     format_search_result,
 )
 
@@ -341,7 +341,7 @@ class ChunkedSemanticSearch(SemanticSearch):
 
     def search_chunks(
         self, query: str, limit: int = DEFAULT_LIB_CHUNK_SEARCH_LIMIT
-    ) -> list[SearchResult]:
+    ) -> list[SemanticSearchResult]:
         if self.chunk_embeddings is None or self.chunk_embeddings.size == 0:
             raise ValueError(
                 "No chunk embeddings loaded. Call `load_or_create_chunk_embeddings` first."
@@ -380,7 +380,7 @@ class ChunkedSemanticSearch(SemanticSearch):
 
         ranked_scores = sorted(movie_scores.items(), key=lambda x: x[1], reverse=True)
 
-        results: list[SearchResult] = []
+        results: list[SemanticSearchResult] = []
         for movie_idx, score in ranked_scores[:limit]:
             doc = self.documents[movie_idx]
             results.append(

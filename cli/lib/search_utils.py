@@ -16,6 +16,7 @@ CHUNK_EMBEDDINGS_PATH = CACHE_DIR / "chunk_embeddings.npy"
 CHUNK_METADATA_PATH = CACHE_DIR / "chunk_metadata.json"
 
 DEFAULT_SEARCH_LIMIT = 5
+DEFAULT_ALPHA = 0.5
 BM25_K1 = 1.5
 BM25_B = 0.75
 
@@ -43,12 +44,28 @@ class ChunkMetadata(TypedDict):
     total_chunks: int
 
 
-class SearchResult(TypedDict):
+class BM25Result(TypedDict):
+    id: int
+    score: float
+    title: str
+    description: str
+
+
+class SemanticSearchResult(TypedDict):
     id: int
     title: str
     document: str
     score: float
     metadata: dict[str, Any]
+
+
+class HybridSearchResult(TypedDict):
+    id: int
+    title: str
+    description: str
+    bm25_score: float
+    semantic_score: float
+    hybrid_score: float
 
 
 def load_movies() -> list[Movie]:
@@ -69,7 +86,7 @@ def format_search_result(
     document: str,
     score: float,
     metadata: dict[str, Any] | None = None,
-) -> SearchResult:
+) -> SemanticSearchResult:
     """Create standardized search result
 
     Args:
