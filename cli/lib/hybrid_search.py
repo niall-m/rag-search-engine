@@ -3,11 +3,13 @@ from typing import Literal
 from .keyword_search import InvertedIndex
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import (
+    DEFAULT_K,
     DEFAULT_ALPHA,
     DEFAULT_SEARCH_LIMIT,
     BM25Result,
     HybridSearchResult,
     SemanticSearchResult,
+    HybridRankResult,
     Movie,
     load_movies,
 )
@@ -94,6 +96,60 @@ def combine_search_results(
     )
 
 
+def rrf_score(rank: int, k: int = DEFAULT_K) -> float:
+    return 1 / (k + rank)
+
+
+def reciprocal_rank_fusion(
+    bm25_results: list[BM25Result],
+    semantic_results: list[SemanticSearchResult],
+    semantic_document_map: dict[int, Movie],
+    k: int = DEFAULT_K,
+) -> list[HybridRankResult]:
+    combined_results: dict[int, HybridRankResult] = {}
+
+    def merge_ranks(
+        results: list[BM25Result] | list[SemanticSearchResult],
+        rank_key: Literal["bm25_rank", "semantic_rank"],
+    ) -> None:
+        for rank, result in enumerate(results, 1):
+            description = (
+                result["description"] if "description" in result else result["document"]
+            )
+            document = semantic_document_map.get(result["id"])
+            if document is not None:
+                description = document["description"]
+
+            entry = combined_results.setdefault(
+                result["id"],
+                {
+                    "id": result["id"],
+                    "title": result["title"],
+                    "description": description,
+                    "bm25_rank": None,
+                    "semantic_rank": None,
+                    "rrf_score": 0.0,
+                },
+            )
+            entry[rank_key] = rank
+            entry["rrf_score"] += rrf_score(rank, k)
+
+    merge_ranks(
+        bm25_results,
+        "bm25_rank",
+    )
+    merge_ranks(
+        semantic_results,
+        "semantic_rank",
+    )
+
+    return sorted(
+        combined_results.values(),
+        key=lambda result: result["rrf_score"],
+        reverse=True,
+    )
+
+
 class HybridSearch:
     def __init__(self, documents: list[Movie]) -> None:
         self.documents = documents
@@ -135,8 +191,21 @@ class HybridSearch:
             alpha,
         )
 
-    def rrf_search(self, query: str, k: int, limit: int = 10) -> list[dict]:
-        raise NotImplementedError("RRF hybrid search is not implemented yet.")
+    def rrf_search(
+        self,
+        query: str,
+        k: int = DEFAULT_K,
+        limit: int = DEFAULT_SEARCH_LIMIT,
+    ) -> list[HybridRankResult]:
+        expanded_limit = limit * 500
+        bm25_results = self._bm25_search(query, expanded_limit)
+        semantic_results = self.semantic_search.search_chunks(query, expanded_limit)
+        return reciprocal_rank_fusion(
+            bm25_results,
+            semantic_results,
+            self.semantic_search.document_map,
+            k,
+        )
 
 
 def normalize_command(nums: list[float]) -> None:
@@ -151,3 +220,12 @@ def weighted_search_command(
 ) -> list[HybridSearchResult]:
     search = HybridSearch(load_movies())
     return search.weighted_search(query, alpha, limit)
+
+
+def rrf_search_command(
+    query: str,
+    k: int = DEFAULT_K,
+    limit: int = DEFAULT_SEARCH_LIMIT,
+):
+    search = HybridSearch(load_movies())
+    return search.rrf_search(query, k, limit)

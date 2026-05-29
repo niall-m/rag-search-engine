@@ -16,6 +16,7 @@ CHUNK_EMBEDDINGS_PATH = CACHE_DIR / "chunk_embeddings.npy"
 CHUNK_METADATA_PATH = CACHE_DIR / "chunk_metadata.json"
 
 DEFAULT_SEARCH_LIMIT = 5
+DEFAULT_K = 60
 DEFAULT_ALPHA = 0.5
 BM25_K1 = 1.5
 BM25_B = 0.75
@@ -66,6 +67,15 @@ class HybridSearchResult(TypedDict):
     bm25_score: float
     semantic_score: float
     hybrid_score: float
+
+
+class HybridRankResult(TypedDict):
+    id: int
+    title: str
+    description: str
+    bm25_rank: int | None
+    semantic_rank: int | None
+    rrf_score: float
 
 
 def load_movies() -> list[Movie]:

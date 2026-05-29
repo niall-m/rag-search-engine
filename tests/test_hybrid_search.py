@@ -9,10 +9,14 @@ from cli.lib.hybrid_search import (
     hybrid_score,
     normalize_command,
     normalize_scores,
+    reciprocal_rank_fusion,
+    rrf_score,
+    rrf_search_command,
     weighted_search_command,
 )
 from cli.lib.search_utils import (
     BM25Result,
+    HybridRankResult,
     HybridSearchResult,
     Movie,
     SemanticSearchResult,
@@ -208,6 +212,160 @@ class WeightedSearchTests(unittest.TestCase):
             1,
         )
         self.assertEqual(results, weighted_results)
+
+
+class ReciprocalRankFusionTests(unittest.TestCase):
+    def semantic_document_map(self) -> dict[int, Movie]:
+        return {
+            1: {
+                "id": 1,
+                "title": "Alpha",
+                "description": "Alpha description",
+            },
+            2: {
+                "id": 2,
+                "title": "Bravo",
+                "description": "Bravo description",
+            },
+            3: {
+                "id": 3,
+                "title": "Charlie",
+                "description": "Charlie description",
+            },
+        }
+
+    def create_search_instance(self) -> HybridSearch:
+        search = object.__new__(HybridSearch)
+        search.semantic_search = SimpleNamespace(
+            document_map=self.semantic_document_map()
+        )
+        return search
+
+    def test_rrf_score_uses_k_and_rank(self) -> None:
+        self.assertAlmostEqual(rrf_score(1, k=20), 1 / 21)
+        self.assertAlmostEqual(rrf_score(5, k=60), 1 / 65)
+
+    def test_reciprocal_rank_fusion_combines_rank_positions_and_sorts(self) -> None:
+        bm25_results: list[BM25Result] = [
+            {
+                "id": 1,
+                "score": 30.0,
+                "title": "Alpha",
+                "description": "Alpha description",
+            },
+            {
+                "id": 2,
+                "score": 20.0,
+                "title": "Bravo",
+                "description": "Bravo description",
+            },
+            {
+                "id": 3,
+                "score": 10.0,
+                "title": "Charlie",
+                "description": "Charlie description",
+            },
+        ]
+        semantic_results: list[SemanticSearchResult] = [
+            {
+                "id": 1,
+                "title": "Alpha",
+                "document": "Alpha description",
+                "score": 0.9,
+                "metadata": {},
+            },
+            {
+                "id": 3,
+                "title": "Charlie",
+                "document": "Charlie description",
+                "score": 0.8,
+                "metadata": {},
+            },
+        ]
+
+        results = reciprocal_rank_fusion(
+            bm25_results,
+            semantic_results,
+            self.semantic_document_map(),
+            k=60,
+        )
+
+        self.assertEqual([result["id"] for result in results], [1, 3, 2])
+        self.assertEqual(results[0]["bm25_rank"], 1)
+        self.assertEqual(results[0]["semantic_rank"], 1)
+        self.assertAlmostEqual(results[0]["rrf_score"], 2 / 61)
+        self.assertEqual(results[1]["bm25_rank"], 3)
+        self.assertEqual(results[1]["semantic_rank"], 2)
+        self.assertAlmostEqual(results[1]["rrf_score"], (1 / 63) + (1 / 62))
+        self.assertEqual(results[2]["bm25_rank"], 2)
+        self.assertIsNone(results[2]["semantic_rank"])
+        self.assertAlmostEqual(results[2]["rrf_score"], 1 / 62)
+
+    def test_rrf_search_expands_limit_and_uses_chunked_semantic_search(self) -> None:
+        search = self.create_search_instance()
+        bm25_results: list[BM25Result] = [
+            {
+                "id": 1,
+                "score": 10.0,
+                "title": "Alpha",
+                "description": "Alpha description",
+            }
+        ]
+        semantic_results: list[SemanticSearchResult] = [
+            {
+                "id": 1,
+                "title": "Alpha",
+                "document": "Alpha description",
+                "score": 0.9,
+                "metadata": {},
+            }
+        ]
+
+        with (
+            patch.object(search, "_bm25_search", return_value=bm25_results) as bm25_search,
+            patch.object(
+                search.semantic_search,
+                "search_chunks",
+                return_value=semantic_results,
+                create=True,
+            ) as semantic_search,
+        ):
+            results = search.rrf_search("family movies", k=30, limit=2)
+
+        bm25_search.assert_called_once_with("family movies", 1000)
+        semantic_search.assert_called_once_with("family movies", 1000)
+        self.assertEqual(results[0]["id"], 1)
+        self.assertEqual(results[0]["bm25_rank"], 1)
+        self.assertEqual(results[0]["semantic_rank"], 1)
+        self.assertAlmostEqual(results[0]["rrf_score"], 2 / 31)
+
+    def test_rrf_search_command_loads_movies_and_runs_search(self) -> None:
+        rrf_results: list[HybridRankResult] = [
+            {
+                "id": 2,
+                "title": "Bravo",
+                "description": "Bravo description",
+                "bm25_rank": 2,
+                "semantic_rank": 1,
+                "rrf_score": 0.0325,
+            }
+        ]
+
+        with (
+            patch("cli.lib.hybrid_search.load_movies", return_value=[]),
+            patch("cli.lib.hybrid_search.HybridSearch") as hybrid_search_class,
+        ):
+            hybrid_search_class.return_value.rrf_search.return_value = rrf_results
+
+            results = rrf_search_command("family movies", k=30, limit=1)
+
+        hybrid_search_class.assert_called_once_with([])
+        hybrid_search_class.return_value.rrf_search.assert_called_once_with(
+            "family movies",
+            30,
+            1,
+        )
+        self.assertEqual(results, rrf_results)
 
 
 if __name__ == "__main__":

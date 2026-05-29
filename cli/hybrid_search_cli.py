@@ -1,7 +1,8 @@
 import argparse
 
-from lib.hybrid_search import normalize_command, weighted_search_command
+from lib.hybrid_search import normalize_command, weighted_search_command, rrf_search_command
 from lib.search_utils import (
+    DEFAULT_K,
     DEFAULT_ALPHA,
     DEFAULT_SEARCH_LIMIT,
     DOCUMENT_PREVIEW_LENGTH,
@@ -45,6 +46,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum number of results to return",
     )
 
+    rrf_search_parser = subparsers.add_parser(
+        "rrf-search",
+        help="Search movies with reciprocal rank fusion",
+    )
+    rrf_search_parser.add_argument("query", type=str, help="Search query")
+    rrf_search_parser.add_argument(
+        "-k",
+        type=int,
+        default=DEFAULT_K,
+        help="Reciprocal rank weighting for higher vs lower hybrid score",
+    )
+    rrf_search_parser.add_argument(
+        "--limit",
+        type=int,
+        default=DEFAULT_SEARCH_LIMIT,
+        help="Maximum number of results to return",
+    )
+
     return parser
 
 
@@ -61,6 +80,17 @@ def run_command(args: argparse.Namespace) -> None:
                     "  "
                     f"BM25: {result['bm25_score']:.3f}, "
                     f"Semantic: {result['semantic_score']:.3f}"
+                )
+                print(f"  {result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
+        case "rrf-search":
+            results = rrf_search_command(args.query, args.k, args.limit)
+            for index, result in enumerate(results[: args.limit], start=1):
+                print(f"{index}. {result['title']}")
+                print(f"  RRF Score: {result['rrf_score']:.3f}")
+                print(
+                    "  "
+                    f"BM25 Rank: {result['bm25_rank']}, "
+                    f"Semantic Rank: {result['semantic_rank']}"
                 )
                 print(f"  {result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
         case _:
