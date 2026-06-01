@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
     rrf_search_parser.add_argument(
         "--enhance",
         type=str,
-        choices=["spell"],
+        choices=["spell", "rewrite"],
         help="Query enhancement method",
     )
 
@@ -91,7 +91,7 @@ def run_command(args: argparse.Namespace) -> None:
                 print(f"  {result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
         case "rrf-search":
             query = args.query
-            if args.enhance == "spell":
+            if args.enhance:
                 enhanced_query = enhance_query(query, args.enhance)
                 print(f"Enhanced query ({args.enhance}): '{query}' -> '{enhanced_query}'\n")
                 query = enhanced_query
