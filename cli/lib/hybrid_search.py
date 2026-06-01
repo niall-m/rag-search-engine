@@ -200,12 +200,13 @@ class HybridSearch:
         expanded_limit = limit * 500
         bm25_results = self._bm25_search(query, expanded_limit)
         semantic_results = self.semantic_search.search_chunks(query, expanded_limit)
-        return reciprocal_rank_fusion(
+        fused = reciprocal_rank_fusion(
             bm25_results,
             semantic_results,
             self.semantic_search.document_map,
             k,
         )
+        return fused[:limit]
 
 
 def normalize_command(nums: list[float]) -> None:

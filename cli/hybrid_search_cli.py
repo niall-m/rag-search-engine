@@ -1,6 +1,7 @@
 import argparse
 
 from lib.hybrid_search import normalize_command, weighted_search_command, rrf_search_command
+from lib.query_enhancement import enhance_query
 from lib.search_utils import (
     DEFAULT_K,
     DEFAULT_ALPHA,
@@ -63,6 +64,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_SEARCH_LIMIT,
         help="Maximum number of results to return",
     )
+    rrf_search_parser.add_argument(
+        "--enhance",
+        type=str,
+        choices=["spell"],
+        help="Query enhancement method",
+    )
 
     return parser
 
@@ -83,7 +90,12 @@ def run_command(args: argparse.Namespace) -> None:
                 )
                 print(f"  {result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
         case "rrf-search":
-            results = rrf_search_command(args.query, args.k, args.limit)
+            query = args.query
+            if args.enhance == "spell":
+                enhanced_query = enhance_query(query, args.enhance)
+                print(f"Enhanced query ({args.enhance}): '{query}' -> '{enhanced_query}'\n")
+                query = enhanced_query
+            results = rrf_search_command(query, args.k, args.limit)
             for index, result in enumerate(results[: args.limit], start=1):
                 print(f"{index}. {result['title']}")
                 print(f"  RRF Score: {result['rrf_score']:.3f}")
