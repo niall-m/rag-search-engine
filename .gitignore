@@ -13,3 +13,4 @@ wheels/
 /data/
 /cache/
 .ruff_cache/
+.env
