@@ -1,6 +1,10 @@
 import argparse
 
-from lib.hybrid_search import normalize_command, weighted_search_command, rrf_search_command
+from lib.hybrid_search import (
+    normalize_command,
+    weighted_search_command,
+    rrf_search_command,
+)
 from lib.query_enhancement import enhance_query
 from lib.search_utils import (
     DEFAULT_K,
@@ -70,6 +74,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["spell", "rewrite", "expand"],
         help="Query enhancement method",
     )
+    rrf_search_parser.add_argument(
+        "--rerank-method",
+        type=str,
+        choices=["individual"],
+        help="Re-rank method",
+    )
 
     return parser
 
@@ -93,11 +103,24 @@ def run_command(args: argparse.Namespace) -> None:
             query = args.query
             if args.enhance:
                 enhanced_query = enhance_query(query, args.enhance)
-                print(f"Enhanced query ({args.enhance}): '{query}' -> '{enhanced_query}'\n")
+                print(
+                    f"Enhanced query ({args.enhance}): '{query}' -> '{enhanced_query}'\n"
+                )
                 query = enhanced_query
-            results = rrf_search_command(query, args.k, args.limit)
+
+            results = rrf_search_command(query, args.k, args.limit, args.rerank_method)
+
+            if args.rerank_method == "individual":
+                print(
+                    f"Re-ranking top {args.limit} results using individual method...\n"
+                )
+
+            print(f"Reciprocal Rank Fusion Results for '{query}' (k={args.k}):\n")
+
             for index, result in enumerate(results[: args.limit], start=1):
                 print(f"{index}. {result['title']}")
+                if args.rerank_method and "rerank_score" in result:
+                    print(f"  Re-rank Score: {result['rerank_score']:.3f}/10")
                 print(f"  RRF Score: {result['rrf_score']:.3f}")
                 print(
                     "  "
@@ -105,6 +128,7 @@ def run_command(args: argparse.Namespace) -> None:
                     f"Semantic Rank: {result['semantic_rank']}"
                 )
                 print(f"  {result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
+                print()
         case _:
             raise ValueError(f"Unknown command: {args.command}")
 

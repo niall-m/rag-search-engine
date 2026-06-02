@@ -1,12 +1,18 @@
+from functools import lru_cache
 import os
+import re
+import time
 from typing import Literal
 
 from dotenv import load_dotenv
 from google import genai
+from .search_utils import HybridRankResult, INDIVIDUAL_RERANK_DELAY_SECONDS
 
 MODEL = "gemma-4-31b-it"
+RERANK_SCORE_PATTERN = re.compile(r"10(?:\.0+)?|[0-9](?:\.\d+)?")
 
 
+@lru_cache(maxsize=1)
 def _create_client() -> genai.Client:
     load_dotenv()
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -83,3 +89,57 @@ def enhance_query(query: str, method: Literal["spell", "rewrite", "expand"]) -> 
             return rewrite_query(query)
         case "expand":
             return expand_query(query)
+
+
+def individual_rerank_score(
+    query: str,
+    title: str,
+    document: str,
+    client: genai.Client | None = None,
+) -> float:
+    active_client = client or _create_client()
+    prompt = f"""Rate how well this movie matches the search query.
+
+Query: "{query}"
+Movie: {title} - {document}
+
+Consider:
+- Direct relevance to query
+- User intent (what they're looking for)
+- Content appropriateness
+
+Rate 0-10 (10 = perfect match).
+Output ONLY the number in your response, no other text or explanation.
+
+Score:"""
+    response = active_client.models.generate_content(model=MODEL, contents=prompt)
+    response_text = (response.text or "").strip()
+    score_match = RERANK_SCORE_PATTERN.search(response_text)
+    if score_match is None:
+        return 0.0
+
+    score = float(score_match.group())
+    return min(max(score, 0.0), 10.0)
+
+
+def rerank_results_individually(
+    query: str,
+    results: list[HybridRankResult],
+) -> list[HybridRankResult]:
+    client = _create_client()
+
+    for index, result in enumerate(results):
+        result["rerank_score"] = individual_rerank_score(
+            query,
+            result["title"],
+            result["description"],
+            client,
+        )
+        if index < len(results) - 1:
+            time.sleep(INDIVIDUAL_RERANK_DELAY_SECONDS)
+
+    return sorted(
+        results,
+        key=lambda result: result["rerank_score"],
+        reverse=True,
+    )

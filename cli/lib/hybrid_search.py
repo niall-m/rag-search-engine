@@ -1,11 +1,14 @@
 from typing import Literal
 
 from .keyword_search import InvertedIndex
+from .query_enhancement import rerank_results_individually
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import (
     DEFAULT_K,
     DEFAULT_ALPHA,
     DEFAULT_SEARCH_LIMIT,
+    SEARCH_EXPANSION_MULTIPLIER,
+    INDIVIDUAL_RERANK_RESULT_MULTIPLIER,
     BM25Result,
     HybridSearchResult,
     SemanticSearchResult,
@@ -181,7 +184,7 @@ class HybridSearch:
     def weighted_search(
         self, query: str, alpha: float = DEFAULT_ALPHA, limit: int = 5
     ) -> list[HybridSearchResult]:
-        expanded_limit = limit * 500
+        expanded_limit = limit * SEARCH_EXPANSION_MULTIPLIER
         bm25_results = self._bm25_search(query, expanded_limit)
         semantic_results = self.semantic_search.search_chunks(query, expanded_limit)
         return combine_search_results(
@@ -196,8 +199,9 @@ class HybridSearch:
         query: str,
         k: int = DEFAULT_K,
         limit: int = DEFAULT_SEARCH_LIMIT,
+        rerank_method: Literal["individual"] | None = None,
     ) -> list[HybridRankResult]:
-        expanded_limit = limit * 500
+        expanded_limit = limit * SEARCH_EXPANSION_MULTIPLIER
         bm25_results = self._bm25_search(query, expanded_limit)
         semantic_results = self.semantic_search.search_chunks(query, expanded_limit)
         fused = reciprocal_rank_fusion(
@@ -206,6 +210,12 @@ class HybridSearch:
             self.semantic_search.document_map,
             k,
         )
+
+        if rerank_method == "individual":
+            result_limit = limit * INDIVIDUAL_RERANK_RESULT_MULTIPLIER
+            fused = fused[:result_limit]
+            fused = rerank_results_individually(query, fused)
+
         return fused[:limit]
 
 
@@ -227,6 +237,7 @@ def rrf_search_command(
     query: str,
     k: int = DEFAULT_K,
     limit: int = DEFAULT_SEARCH_LIMIT,
-):
+    rerank_method: Literal["individual"] | None = None,
+) -> list[HybridRankResult]:
     search = HybridSearch(load_movies())
-    return search.rrf_search(query, k, limit)
+    return search.rrf_search(query, k, limit, rerank_method)

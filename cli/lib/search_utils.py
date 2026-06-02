@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, TypedDict, cast
+from typing import Any, NotRequired, TypedDict, cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MOVIES_DATA_PATH = PROJECT_ROOT / "data" / "movies.json"
@@ -32,6 +32,9 @@ DEFAULT_RAG_CHUNK_OVERLAP = 1
 DEFAULT_LIB_CHUNK_SEARCH_LIMIT = 10
 DEFAULT_CLI_CHUNK_SEARCH_LIMIT = 5
 
+SEARCH_EXPANSION_MULTIPLIER = 500
+INDIVIDUAL_RERANK_RESULT_MULTIPLIER = 5
+INDIVIDUAL_RERANK_DELAY_SECONDS = 3
 
 class Movie(TypedDict):
     id: int
@@ -76,6 +79,7 @@ class HybridRankResult(TypedDict):
     bm25_rank: int | None
     semantic_rank: int | None
     rrf_score: float
+    rerank_score: NotRequired[float]
 
 
 def load_movies() -> list[Movie]:
