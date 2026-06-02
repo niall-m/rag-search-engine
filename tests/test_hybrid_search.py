@@ -322,7 +322,9 @@ class ReciprocalRankFusionTests(unittest.TestCase):
         ]
 
         with (
-            patch.object(search, "_bm25_search", return_value=bm25_results) as bm25_search,
+            patch.object(
+                search, "_bm25_search", return_value=bm25_results
+            ) as bm25_search,
             patch.object(
                 search.semantic_search,
                 "search_chunks",

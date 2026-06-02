@@ -388,7 +388,9 @@ class SemanticSearchTests(unittest.TestCase):
 
         self.assertEqual(chunks, ["Leading and trailing spaces.", "Next sentence."])
 
-    def test_create_semantic_chunks_keeps_single_sentence_without_punctuation(self) -> None:
+    def test_create_semantic_chunks_keeps_single_sentence_without_punctuation(
+        self,
+    ) -> None:
         chunks = semantic_search.create_semantic_chunks(
             "Text without punctuation",
             max_chunk_size=4,
