@@ -1,14 +1,13 @@
 from typing import Literal
 
 from .keyword_search import InvertedIndex
-from .query_enhancement import rerank_results_individually
+from .query_enhancement import rerank
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import (
     DEFAULT_K,
     DEFAULT_ALPHA,
     DEFAULT_SEARCH_LIMIT,
     SEARCH_EXPANSION_MULTIPLIER,
-    INDIVIDUAL_RERANK_RESULT_MULTIPLIER,
     BM25Result,
     HybridSearchResult,
     SemanticSearchResult,
@@ -199,7 +198,7 @@ class HybridSearch:
         query: str,
         k: int = DEFAULT_K,
         limit: int = DEFAULT_SEARCH_LIMIT,
-        rerank_method: Literal["individual"] | None = None,
+        rerank_method: Literal["individual", "batch"] | None = None,
     ) -> list[HybridRankResult]:
         expanded_limit = limit * SEARCH_EXPANSION_MULTIPLIER
         bm25_results = self._bm25_search(query, expanded_limit)
@@ -211,12 +210,10 @@ class HybridSearch:
             k,
         )
 
-        if rerank_method == "individual":
-            result_limit = limit * INDIVIDUAL_RERANK_RESULT_MULTIPLIER
-            fused = fused[:result_limit]
-            fused = rerank_results_individually(query, fused)
+        if rerank_method is None:
+            return fused[:limit]
 
-        return fused[:limit]
+        return rerank(query, fused, rerank_method, limit)
 
 
 def normalize_command(nums: list[float]) -> None:
@@ -237,7 +234,7 @@ def rrf_search_command(
     query: str,
     k: int = DEFAULT_K,
     limit: int = DEFAULT_SEARCH_LIMIT,
-    rerank_method: Literal["individual"] | None = None,
+    rerank_method: Literal["individual", "batch"] | None = None,
 ) -> list[HybridRankResult]:
     search = HybridSearch(load_movies())
     return search.rrf_search(query, k, limit, rerank_method)

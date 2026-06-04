@@ -77,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
     rrf_search_parser.add_argument(
         "--rerank-method",
         type=str,
-        choices=["individual"],
+        choices=["individual", "batch"],
         help="Re-rank method",
     )
 
@@ -108,19 +108,21 @@ def run_command(args: argparse.Namespace) -> None:
                 )
                 query = enhanced_query
 
-            results = rrf_search_command(query, args.k, args.limit, args.rerank_method)
-
-            if args.rerank_method == "individual":
+            if args.rerank_method:
                 print(
-                    f"Re-ranking top {args.limit} results using individual method...\n"
+                    f"Re-ranking top {args.limit} results using {args.rerank_method} method...\n"
                 )
+
+            results = rrf_search_command(query, args.k, args.limit, args.rerank_method)
 
             print(f"Reciprocal Rank Fusion Results for '{query}' (k={args.k}):\n")
 
             for index, result in enumerate(results[: args.limit], start=1):
                 print(f"{index}. {result['title']}")
-                if args.rerank_method and "rerank_score" in result:
+                if args.rerank_method == "individual" and "rerank_score" in result:
                     print(f"  Re-rank Score: {result['rerank_score']:.3f}/10")
+                if args.rerank_method == "batch" and "rerank_rank" in result:
+                    print(f"  Re-rank Rank: {result['rerank_rank']}")
                 print(f"  RRF Score: {result['rrf_score']:.3f}")
                 print(
                     "  "

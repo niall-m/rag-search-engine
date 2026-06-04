@@ -14,6 +14,7 @@ from cli.lib.hybrid_search import (
     rrf_search_command,
     weighted_search_command,
 )
+from cli.lib.query_enhancement import rerank_batch
 from cli.lib.search_utils import (
     BM25Result,
     HybridRankResult,
@@ -341,6 +342,41 @@ class ReciprocalRankFusionTests(unittest.TestCase):
         self.assertEqual(results[0]["semantic_rank"], 1)
         self.assertAlmostEqual(results[0]["rrf_score"], 2 / 31)
 
+    def test_rrf_search_only_calls_rerank_when_method_is_provided(self) -> None:
+        search = self.create_search_instance()
+        bm25_results: list[BM25Result] = [
+            {
+                "id": 1,
+                "score": 10.0,
+                "title": "Alpha",
+                "description": "Alpha description",
+            }
+        ]
+        semantic_results: list[SemanticSearchResult] = [
+            {
+                "id": 1,
+                "title": "Alpha",
+                "document": "Alpha description",
+                "score": 0.9,
+                "metadata": {},
+            }
+        ]
+
+        with (
+            patch.object(search, "_bm25_search", return_value=bm25_results),
+            patch.object(
+                search.semantic_search,
+                "search_chunks",
+                return_value=semantic_results,
+                create=True,
+            ),
+            patch("cli.lib.hybrid_search.rerank") as rerank_fn,
+        ):
+            results = search.rrf_search("family movies", k=30, limit=2)
+
+        rerank_fn.assert_not_called()
+        self.assertEqual(results[0]["id"], 1)
+
     def test_rrf_search_command_loads_movies_and_runs_search(self) -> None:
         rrf_results: list[HybridRankResult] = [
             {
@@ -368,6 +404,50 @@ class ReciprocalRankFusionTests(unittest.TestCase):
             1,
         )
         self.assertEqual(results, rrf_results)
+
+
+class BatchRerankTests(unittest.TestCase):
+    def test_rerank_batch_assigns_rank_and_sorts_results(self) -> None:
+        results: list[HybridRankResult] = [
+            {
+                "id": 1,
+                "title": "Alpha",
+                "description": "Alpha description",
+                "bm25_rank": 1,
+                "semantic_rank": 3,
+                "rrf_score": 0.03,
+            },
+            {
+                "id": 2,
+                "title": "Bravo",
+                "description": "Bravo description",
+                "bm25_rank": 2,
+                "semantic_rank": 2,
+                "rrf_score": 0.02,
+            },
+            {
+                "id": 3,
+                "title": "Charlie",
+                "description": "Charlie description",
+                "bm25_rank": 3,
+                "semantic_rank": 1,
+                "rrf_score": 0.01,
+            },
+        ]
+        client = SimpleNamespace(
+            models=SimpleNamespace(
+                generate_content=lambda **_: SimpleNamespace(text="[3, 1, 2]")
+            )
+        )
+
+        with patch("cli.lib.query_enhancement._create_client", return_value=client):
+            reranked_results = rerank_batch("family movies", results)
+
+        self.assertEqual([result["id"] for result in reranked_results], [3, 1, 2])
+        self.assertEqual(
+            [result["rerank_rank"] for result in reranked_results],
+            [1, 2, 3],
+        )
 
 
 if __name__ == "__main__":

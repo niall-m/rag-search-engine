@@ -33,7 +33,7 @@ DEFAULT_LIB_CHUNK_SEARCH_LIMIT = 10
 DEFAULT_CLI_CHUNK_SEARCH_LIMIT = 5
 
 SEARCH_EXPANSION_MULTIPLIER = 500
-INDIVIDUAL_RERANK_RESULT_MULTIPLIER = 5
+RERANK_RESULT_MULTIPLIER = 5
 INDIVIDUAL_RERANK_DELAY_SECONDS = 3
 
 
@@ -81,6 +81,7 @@ class HybridRankResult(TypedDict):
     semantic_rank: int | None
     rrf_score: float
     rerank_score: NotRequired[float]
+    rerank_rank: NotRequired[int]
 
 
 def load_movies() -> list[Movie]:
