@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, NotRequired, TypedDict, cast
+from typing import Any, Literal, NotRequired, TypedDict, cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MOVIES_DATA_PATH = PROJECT_ROOT / "data" / "movies.json"
@@ -82,6 +82,17 @@ class HybridRankResult(TypedDict):
     rrf_score: float
     rerank_score: NotRequired[float]
     rerank_rank: NotRequired[int]
+
+
+class RRFSearchCommandResult(TypedDict):
+    original_query: str
+    enhanced_query: str | None
+    enhance_method: Literal["spell", "rewrite", "expand"] | None
+    query: str
+    k: int
+    rerank_method: Literal["individual", "batch"] | None
+    reranked: bool
+    results: list[HybridRankResult]
 
 
 def load_movies() -> list[Movie]:

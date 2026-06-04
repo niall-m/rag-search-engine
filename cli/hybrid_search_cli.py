@@ -5,7 +5,6 @@ from lib.hybrid_search import (
     weighted_search_command,
     rrf_search_command,
 )
-from lib.query_enhancement import enhance_query
 from lib.search_utils import (
     DEFAULT_K,
     DEFAULT_ALPHA,
@@ -100,36 +99,44 @@ def run_command(args: argparse.Namespace) -> None:
                 )
                 print(f"  {result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
         case "rrf-search":
-            query = args.query
-            if args.enhance:
-                enhanced_query = enhance_query(query, args.enhance)
+            result = rrf_search_command(
+                args.query,
+                args.k,
+                args.enhance,
+                args.rerank_method,
+                args.limit,
+            )
+
+            if result["enhanced_query"]:
                 print(
-                    f"Enhanced query ({args.enhance}): '{query}' -> '{enhanced_query}'\n"
+                    f"Enhanced query ({result['enhance_method']}): "
+                    f"'{result['original_query']}' -> '{result['enhanced_query']}'\n"
                 )
-                query = enhanced_query
 
-            if args.rerank_method:
+            if result["reranked"]:
                 print(
-                    f"Re-ranking top {args.limit} results using {args.rerank_method} method...\n"
+                    f"Re-ranking top {len(result['results'])} results using "
+                    f"{result['rerank_method']} method...\n"
                 )
 
-            results = rrf_search_command(query, args.k, args.limit, args.rerank_method)
+            print(
+                f"Reciprocal Rank Fusion Results for "
+                f"'{result['query']}' (k={result['k']}):\n"
+            )
 
-            print(f"Reciprocal Rank Fusion Results for '{query}' (k={args.k}):\n")
-
-            for index, result in enumerate(results[: args.limit], start=1):
-                print(f"{index}. {result['title']}")
-                if args.rerank_method == "individual" and "rerank_score" in result:
-                    print(f"  Re-rank Score: {result['rerank_score']:.3f}/10")
-                if args.rerank_method == "batch" and "rerank_rank" in result:
-                    print(f"  Re-rank Rank: {result['rerank_rank']}")
-                print(f"  RRF Score: {result['rrf_score']:.3f}")
+            for index, search_result in enumerate(result["results"], start=1):
+                print(f"{index}. {search_result['title']}")
+                if "rerank_score" in search_result:
+                    print(f"  Re-rank Score: {search_result['rerank_score']:.3f}/10")
+                if "rerank_rank" in search_result:
+                    print(f"  Re-rank Rank: {search_result['rerank_rank']}")
+                print(f"  RRF Score: {search_result['rrf_score']:.3f}")
                 print(
                     "  "
-                    f"BM25 Rank: {result['bm25_rank']}, "
-                    f"Semantic Rank: {result['semantic_rank']}"
+                    f"BM25 Rank: {search_result['bm25_rank']}, "
+                    f"Semantic Rank: {search_result['semantic_rank']}"
                 )
-                print(f"  {result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
+                print(f"  {search_result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
                 print()
         case _:
             raise ValueError(f"Unknown command: {args.command}")

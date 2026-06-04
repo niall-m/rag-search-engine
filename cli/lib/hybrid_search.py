@@ -1,17 +1,20 @@
 from typing import Literal
 
 from .keyword_search import InvertedIndex
-from .query_enhancement import rerank
+from .query_enhancement import enhance_query
+from .reranking import rerank
 from .semantic_search import ChunkedSemanticSearch
 from .search_utils import (
     DEFAULT_K,
     DEFAULT_ALPHA,
     DEFAULT_SEARCH_LIMIT,
+    RERANK_RESULT_MULTIPLIER,
     SEARCH_EXPANSION_MULTIPLIER,
     BM25Result,
-    HybridSearchResult,
     SemanticSearchResult,
+    HybridSearchResult,
     HybridRankResult,
+    RRFSearchCommandResult,
     Movie,
     load_movies,
 )
@@ -198,7 +201,6 @@ class HybridSearch:
         query: str,
         k: int = DEFAULT_K,
         limit: int = DEFAULT_SEARCH_LIMIT,
-        rerank_method: Literal["individual", "batch"] | None = None,
     ) -> list[HybridRankResult]:
         expanded_limit = limit * SEARCH_EXPANSION_MULTIPLIER
         bm25_results = self._bm25_search(query, expanded_limit)
@@ -209,11 +211,7 @@ class HybridSearch:
             self.semantic_search.document_map,
             k,
         )
-
-        if rerank_method is None:
-            return fused[:limit]
-
-        return rerank(query, fused, rerank_method, limit)
+        return fused[:limit]
 
 
 def normalize_command(nums: list[float]) -> None:
@@ -233,8 +231,32 @@ def weighted_search_command(
 def rrf_search_command(
     query: str,
     k: int = DEFAULT_K,
-    limit: int = DEFAULT_SEARCH_LIMIT,
+    enhance: Literal["spell", "rewrite", "expand"] | None = None,
     rerank_method: Literal["individual", "batch"] | None = None,
-) -> list[HybridRankResult]:
+    limit: int = DEFAULT_SEARCH_LIMIT,
+) -> RRFSearchCommandResult:
     search = HybridSearch(load_movies())
-    return search.rrf_search(query, k, limit, rerank_method)
+    original_query = query
+    enhanced_query = None
+    if enhance:
+        enhanced_query = enhance_query(query, enhance)
+        query = enhanced_query
+
+    search_limit = limit * RERANK_RESULT_MULTIPLIER if rerank_method else limit
+    results = search.rrf_search(query, k, search_limit)
+
+    reranked = False
+    if rerank_method:
+        results = rerank(query, results, rerank_method, limit)
+        reranked = True
+
+    return {
+        "original_query": original_query,
+        "enhanced_query": enhanced_query,
+        "enhance_method": enhance,
+        "query": query,
+        "k": k,
+        "rerank_method": rerank_method,
+        "reranked": reranked,
+        "results": results,
+    }
