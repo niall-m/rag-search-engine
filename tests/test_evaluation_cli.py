@@ -1,18 +1,21 @@
+import importlib
 import sys
 import unittest
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cli"))
+CLI_DIR = Path(__file__).resolve().parents[1] / "cli"
+sys.path.insert(0, str(CLI_DIR))
 
-from evaluation_cli import (
-    calculate_precision_at_k,
-    calculate_recall_at_k,
-    evaluate_search_at_k,
-    print_evaluation_results,
-)
-from lib.search_utils import DEFAULT_K
+evaluation_cli = importlib.import_module("evaluation_cli")
+
+calculate_f1_score = evaluation_cli.calculate_f1_score
+calculate_precision_at_k = evaluation_cli.calculate_precision_at_k
+calculate_recall_at_k = evaluation_cli.calculate_recall_at_k
+evaluate_search_at_k = evaluation_cli.evaluate_search_at_k
+print_evaluation_results = evaluation_cli.print_evaluation_results
+DEFAULT_K = evaluation_cli.DEFAULT_K
 
 
 class FakeSearch:
@@ -39,13 +42,19 @@ class EvaluationCliTests(unittest.TestCase):
 
         self.assertAlmostEqual(precision, 1 / 3)
 
-    def test_calculate_recall_at_k_counts_relevant_titles_found_in_results(self) -> None:
+    def test_calculate_recall_at_k_counts_relevant_titles_found_in_results(
+        self,
+    ) -> None:
         recall = calculate_recall_at_k(
             ["The Edge", "Alaska", "Paddington"],
             ["The Edge", "Alaska", "The Revenant", "Grizzly Man"],
         )
 
         self.assertAlmostEqual(recall, 0.5)
+
+    def test_calculate_f1_score_balances_precision_and_recall(self) -> None:
+        self.assertAlmostEqual(calculate_f1_score(0.75, 0.5), 0.6)
+        self.assertEqual(calculate_f1_score(0.0, 0.0), 0.0)
 
     def test_evaluate_search_at_k_uses_rrf_search_and_preserves_relevant_titles(
         self,
@@ -89,8 +98,10 @@ class EvaluationCliTests(unittest.TestCase):
         )
         self.assertAlmostEqual(results[0]["precision"], 1.0)
         self.assertAlmostEqual(results[0]["recall"], 2 / 3)
+        self.assertAlmostEqual(results[0]["f1"], 0.8)
         self.assertAlmostEqual(results[1]["precision"], 0.5)
         self.assertAlmostEqual(results[1]["recall"], 1.0)
+        self.assertAlmostEqual(results[1]["f1"], 2 / 3)
 
     def test_print_evaluation_results_matches_expected_output(self) -> None:
         results = [
@@ -98,6 +109,7 @@ class EvaluationCliTests(unittest.TestCase):
                 "query": "dangerous bear wilderness survival",
                 "precision": 1.0,
                 "recall": 6 / 7,
+                "f1": 12 / 13,
                 "retrieved_titles": [
                     "The Edge",
                     "Man in the Wilderness",
@@ -120,6 +132,7 @@ class EvaluationCliTests(unittest.TestCase):
                 "query": "cute british bear marmalade",
                 "precision": 1 / 6,
                 "recall": 1.0,
+                "f1": 2 / 7,
                 "retrieved_titles": [
                     "Paddington",
                     "The Indian in the Cupboard",
@@ -142,6 +155,7 @@ class EvaluationCliTests(unittest.TestCase):
             "- Query: dangerous bear wilderness survival\n"
             "  - Precision@6: 1.0000\n"
             "  - Recall@6: 0.8571\n"
+            "  - F1 Score: 0.9231\n"
             "  - Retrieved: The Edge, Man in the Wilderness, Claws, Unnatural, "
             "Into the Grizzly Maze, Alaska\n"
             "  - Relevant: Unnatural, Alaska, The Edge, Into the Grizzly Maze, "
@@ -150,6 +164,7 @@ class EvaluationCliTests(unittest.TestCase):
             "- Query: cute british bear marmalade\n"
             "  - Precision@6: 0.1667\n"
             "  - Recall@6: 1.0000\n"
+            "  - F1 Score: 0.2857\n"
             "  - Retrieved: Paddington, The Indian in the Cupboard, The Duchess, "
             "The Great Bear, The Bear, Goldilocks and the Three Bears\n"
             "  - Relevant: Paddington\n"

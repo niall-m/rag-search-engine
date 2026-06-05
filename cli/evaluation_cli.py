@@ -22,6 +22,7 @@ class EvaluationResult(TypedDict):
     query: str
     precision: float
     recall: float
+    f1: float
     retrieved_titles: list[str]
     relevant_titles: list[str]
 
@@ -67,6 +68,13 @@ def calculate_recall_at_k(
     return len(relevant_retrieved) / len(relevant_titles)
 
 
+def calculate_f1_score(precision: float, recall: float) -> float:
+    if precision + recall == 0:
+        return 0.0
+
+    return 2 * (precision * recall) / (precision + recall)
+
+
 def evaluate_search_at_k(
     search: RRFEvaluator,
     test_cases: list[GoldenTestCase],
@@ -78,17 +86,21 @@ def evaluate_search_at_k(
         retrieved_results = search.rrf_search(test_case["query"], DEFAULT_K, limit)
         retrieved_titles = [str(result["title"]) for result in retrieved_results]
 
+        precision = calculate_precision_at_k(
+            retrieved_titles,
+            test_case["relevant_docs"],
+        )
+        recall = calculate_recall_at_k(
+            retrieved_titles,
+            test_case["relevant_docs"],
+        )
+        f1 = calculate_f1_score(precision, recall)
         results.append(
             {
                 "query": test_case["query"],
-                "precision": calculate_precision_at_k(
-                    retrieved_titles,
-                    test_case["relevant_docs"],
-                ),
-                "recall": calculate_recall_at_k(
-                    retrieved_titles,
-                    test_case["relevant_docs"],
-                ),
+                "precision": precision,
+                "recall": recall,
+                "f1": f1,
                 "retrieved_titles": retrieved_titles,
                 "relevant_titles": test_case["relevant_docs"],
             }
@@ -109,6 +121,7 @@ def print_evaluation_results(results: list[EvaluationResult], limit: int) -> Non
         print(f"- Query: {result['query']}")
         print(f"  - Precision@{limit}: {result['precision']:.4f}")
         print(f"  - Recall@{limit}: {result['recall']:.4f}")
+        print(f"  - F1 Score: {result['f1']:.4f}")
         print(f"  - Retrieved: {format_titles(result['retrieved_titles'])}")
         print(f"  - Relevant: {format_titles(result['relevant_titles'])}")
         print()
@@ -120,7 +133,7 @@ def main() -> None:
         "--limit",
         type=int,
         default=DEFAULT_SEARCH_LIMIT,
-        help="Number of results to evaluate (k for precision@k, recall@k)",
+        help="Number of results to evaluate (k for precision@k, recall@k, and f1 score)",
     )
 
     args = parser.parse_args()
