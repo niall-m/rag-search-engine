@@ -21,6 +21,7 @@ class GoldenTestCase(TypedDict):
 class EvaluationResult(TypedDict):
     query: str
     precision: float
+    recall: float
     retrieved_titles: list[str]
     relevant_titles: list[str]
 
@@ -53,7 +54,20 @@ def calculate_precision_at_k(
     return len(relevant_retrieved) / len(retrieved_titles)
 
 
-def evaluate_precision_at_k(
+def calculate_recall_at_k(
+    retrieved_titles: list[str],
+    relevant_titles: list[str],
+) -> float:
+    if not relevant_titles:
+        return 0.0
+
+    relevant_retrieved = [
+        title for title in retrieved_titles if title in relevant_titles
+    ]
+    return len(relevant_retrieved) / len(relevant_titles)
+
+
+def evaluate_search_at_k(
     search: RRFEvaluator,
     test_cases: list[GoldenTestCase],
     limit: int,
@@ -68,6 +82,10 @@ def evaluate_precision_at_k(
             {
                 "query": test_case["query"],
                 "precision": calculate_precision_at_k(
+                    retrieved_titles,
+                    test_case["relevant_docs"],
+                ),
+                "recall": calculate_recall_at_k(
                     retrieved_titles,
                     test_case["relevant_docs"],
                 ),
@@ -90,6 +108,7 @@ def print_evaluation_results(results: list[EvaluationResult], limit: int) -> Non
     for result in results:
         print(f"- Query: {result['query']}")
         print(f"  - Precision@{limit}: {result['precision']:.4f}")
+        print(f"  - Recall@{limit}: {result['recall']:.4f}")
         print(f"  - Retrieved: {format_titles(result['retrieved_titles'])}")
         print(f"  - Relevant: {format_titles(result['relevant_titles'])}")
         print()
@@ -112,7 +131,7 @@ def main() -> None:
 
     search = HybridSearch(load_movies())
     test_cases = load_golden_test_cases()
-    results = evaluate_precision_at_k(search, test_cases, limit)
+    results = evaluate_search_at_k(search, test_cases, limit)
     print_evaluation_results(results, limit)
 
 
