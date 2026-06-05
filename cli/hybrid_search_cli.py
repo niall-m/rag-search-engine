@@ -13,6 +13,7 @@ from lib.search_utils import (
     DEFAULT_SEARCH_LIMIT,
     DOCUMENT_PREVIEW_LENGTH,
 )
+from lib.evaluate import evaluate
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -85,6 +86,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--debug",
         action="store_true",
         help="Print debug logging for each RRF pipeline stage",
+    )
+    rrf_search_parser.add_argument(
+        "--evaluate",
+        action="store_true",
+        help="Use an LLM to evaluate the results",
     )
 
     return parser
@@ -164,8 +170,15 @@ def run_command(args: argparse.Namespace) -> None:
                     f"BM25 Rank: {search_result['bm25_rank']}, "
                     f"Semantic Rank: {search_result['semantic_rank']}"
                 )
-                print(f"  {search_result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
-                print()
+                print(
+                    f"  {search_result['description'][:DOCUMENT_PREVIEW_LENGTH]}...\n"
+                )
+
+            if args.evaluate:
+                try:
+                    evaluate(result)
+                except ValueError as exc:
+                    print(f"LLM evaluation failed: {exc}")
         case _:
             raise ValueError(f"Unknown command: {args.command}")
 
