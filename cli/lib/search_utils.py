@@ -15,6 +15,8 @@ MOVIE_EMBEDDINGS_PATH = CACHE_DIR / "movie_embeddings.npy"
 CHUNK_EMBEDDINGS_PATH = CACHE_DIR / "chunk_embeddings.npy"
 CHUNK_METADATA_PATH = CACHE_DIR / "chunk_metadata.json"
 
+GOLDEN_PATH = PROJECT_ROOT / "data" / "golden_dataset.json"
+
 DEFAULT_SEARCH_LIMIT = 5
 DEFAULT_K = 60
 DEFAULT_ALPHA = 0.5
