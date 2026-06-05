@@ -82,6 +82,7 @@ class HybridRankResult(TypedDict):
     rrf_score: float
     rerank_score: NotRequired[float]
     rerank_rank: NotRequired[int]
+    rerank_cross_score: NotRequired[float]
 
 
 class RRFSearchCommandResult(TypedDict):
@@ -90,7 +91,7 @@ class RRFSearchCommandResult(TypedDict):
     enhance_method: Literal["spell", "rewrite", "expand"] | None
     query: str
     k: int
-    rerank_method: Literal["individual", "batch"] | None
+    rerank_method: Literal["individual", "batch", "cross_encoder"] | None
     reranked: bool
     results: list[HybridRankResult]
 

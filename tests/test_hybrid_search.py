@@ -1,7 +1,7 @@
 import unittest
 from io import StringIO
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from cli.lib.hybrid_search import (
     HybridSearch,
@@ -14,7 +14,7 @@ from cli.lib.hybrid_search import (
     rrf_search_command,
     weighted_search_command,
 )
-from cli.lib.reranking import rerank_batch
+from cli.lib.reranking import rerank_batch, rerank_cross_encoder
 from cli.lib.search_utils import (
     BM25Result,
     HybridRankResult,
@@ -477,6 +477,93 @@ class BatchRerankTests(unittest.TestCase):
             [result["rerank_rank"] for result in reranked_results],
             [1, 2, 3],
         )
+
+
+class CrossEncoderRerankTests(unittest.TestCase):
+    def test_rerank_cross_encoder_assigns_scores_and_sorts_results(self) -> None:
+        results: list[HybridRankResult] = [
+            {
+                "id": 1,
+                "title": "Alpha",
+                "description": "Alpha description",
+                "bm25_rank": 1,
+                "semantic_rank": 3,
+                "rrf_score": 0.03,
+            },
+            {
+                "id": 2,
+                "title": "Bravo",
+                "description": "Bravo description",
+                "bm25_rank": 2,
+                "semantic_rank": 2,
+                "rrf_score": 0.02,
+            },
+            {
+                "id": 3,
+                "title": "Charlie",
+                "description": "Charlie description",
+                "bm25_rank": 3,
+                "semantic_rank": 1,
+                "rrf_score": 0.01,
+            },
+        ]
+        fake_encoder = SimpleNamespace(predict=MagicMock(return_value=[-1.0, 3.3, 0.5]))
+
+        with patch(
+            "cli.lib.reranking.CrossEncoder",
+            return_value=fake_encoder,
+        ) as cross_encoder_class:
+            reranked_results = rerank_cross_encoder("family movies", results)
+
+        cross_encoder_class.assert_called_once_with(
+            "cross-encoder/ms-marco-TinyBERT-L2-v2"
+        )
+        fake_encoder.predict.assert_called_once_with(
+            [
+                ["family movies", "Alpha - Alpha description"],
+                ["family movies", "Bravo - Bravo description"],
+                ["family movies", "Charlie - Charlie description"],
+            ]
+        )
+        self.assertEqual([result["id"] for result in reranked_results], [2, 3, 1])
+        self.assertEqual(
+            [result["rerank_cross_score"] for result in reranked_results],
+            [3.3, 0.5, -1.0],
+        )
+
+    def test_rerank_cross_encoder_falls_back_to_cpu(self) -> None:
+        results: list[HybridRankResult] = [
+            {
+                "id": 1,
+                "title": "Alpha",
+                "description": "Alpha description",
+                "bm25_rank": 1,
+                "semantic_rank": 1,
+                "rrf_score": 0.03,
+            }
+        ]
+        fake_encoder = SimpleNamespace(predict=MagicMock(return_value=[1.25]))
+
+        with patch(
+            "cli.lib.reranking.CrossEncoder",
+            side_effect=[RuntimeError("gpu error"), fake_encoder],
+        ) as cross_encoder_class:
+            reranked_results = rerank_cross_encoder("family movies", results)
+
+        self.assertEqual(cross_encoder_class.call_count, 2)
+        self.assertEqual(
+            cross_encoder_class.call_args_list[0].args,
+            ("cross-encoder/ms-marco-TinyBERT-L2-v2",),
+        )
+        self.assertEqual(
+            cross_encoder_class.call_args_list[1].args,
+            ("cross-encoder/ms-marco-TinyBERT-L2-v2",),
+        )
+        self.assertEqual(
+            cross_encoder_class.call_args_list[1].kwargs,
+            {"device": "cpu"},
+        )
+        self.assertEqual(reranked_results[0]["rerank_cross_score"], 1.25)
 
 
 if __name__ == "__main__":

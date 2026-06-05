@@ -232,7 +232,7 @@ def rrf_search_command(
     query: str,
     k: int = DEFAULT_K,
     enhance: Literal["spell", "rewrite", "expand"] | None = None,
-    rerank_method: Literal["individual", "batch"] | None = None,
+    rerank_method: Literal["individual", "batch", "cross_encoder"] | None = None,
     limit: int = DEFAULT_SEARCH_LIMIT,
 ) -> RRFSearchCommandResult:
     search = HybridSearch(load_movies())

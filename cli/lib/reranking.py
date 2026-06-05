@@ -4,10 +4,12 @@ import time
 
 from typing import Literal
 from google import genai
+from sentence_transformers import CrossEncoder
 
 from .query_enhancement import MODEL, create_client
 from .search_utils import (
     HybridRankResult,
+    DEFAULT_SEARCH_LIMIT,
     DOCUMENT_PREVIEW_LENGTH,
     INDIVIDUAL_RERANK_DELAY_SECONDS,
     RERANK_RESULT_MULTIPLIER,
@@ -123,11 +125,35 @@ Ranking:"""
     )
 
 
+def rerank_cross_encoder(
+    query: str, results: list[HybridRankResult]
+) -> list[HybridRankResult]:
+    try:
+        cross_encoder = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L2-v2")
+    except Exception:
+        cross_encoder = CrossEncoder(
+            "cross-encoder/ms-marco-TinyBERT-L2-v2", device="cpu"
+        )
+
+    pairs: list[list[str]] = []
+
+    for doc in results:
+        pairs.append([query, f"{doc.get('title', '')} - {doc.get('description', '')}"])
+
+    scores = cross_encoder.predict(pairs)
+    for result, score in zip(results, scores):
+        result["rerank_cross_score"] = score
+
+    return sorted(
+        results, key=lambda result: result["rerank_cross_score"], reverse=True
+    )
+
+
 def rerank(
     query: str,
     results: list[HybridRankResult],
-    method: Literal["individual", "batch"] | None = None,
-    limit: int = 5,
+    method: Literal["individual", "batch", "cross_encoder"] | None = None,
+    limit: int = DEFAULT_SEARCH_LIMIT,
 ) -> list[HybridRankResult]:
     rerank_limit = limit * RERANK_RESULT_MULTIPLIER
 
@@ -137,6 +163,10 @@ def rerank(
 
     if method == "batch":
         reranked_results = rerank_batch(query, results[:rerank_limit])
+        return reranked_results[:limit]
+
+    if method == "cross_encoder":
+        reranked_results = rerank_cross_encoder(query, results[:rerank_limit])
         return reranked_results[:limit]
 
     return results[:limit]

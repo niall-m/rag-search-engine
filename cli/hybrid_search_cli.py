@@ -76,7 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
     rrf_search_parser.add_argument(
         "--rerank-method",
         type=str,
-        choices=["individual", "batch"],
+        choices=["individual", "batch", "cross_encoder"],
         help="Re-rank method",
     )
 
@@ -130,6 +130,10 @@ def run_command(args: argparse.Namespace) -> None:
                     print(f"  Re-rank Score: {search_result['rerank_score']:.3f}/10")
                 if "rerank_rank" in search_result:
                     print(f"  Re-rank Rank: {search_result['rerank_rank']}")
+                if "rerank_cross_score" in search_result:
+                    print(
+                        f"  Cross Encoder Score: {search_result['rerank_cross_score']:.3f}"
+                    )
                 print(f"  RRF Score: {search_result['rrf_score']:.3f}")
                 print(
                     "  "
