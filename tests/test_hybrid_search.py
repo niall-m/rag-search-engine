@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from cli.lib.hybrid_search import (
     HybridSearch,
+    RRF_DEBUG_LOGGER_NAME,
     combine_search_results,
     hybrid_score,
     normalize_command,
@@ -433,6 +434,66 @@ class ReciprocalRankFusionTests(unittest.TestCase):
         self.assertEqual(result["enhance_method"], "rewrite")
         self.assertTrue(result["reranked"])
         self.assertEqual(result["results"], reranked_results)
+
+    def test_rrf_search_command_logs_pipeline_stages_when_debug_enabled(self) -> None:
+        fused_results: list[HybridRankResult] = [
+            {
+                "id": 2,
+                "title": "Bravo",
+                "description": "Bravo description",
+                "bm25_rank": 2,
+                "semantic_rank": 1,
+                "rrf_score": 0.0325,
+            }
+        ]
+        reranked_results: list[HybridRankResult] = [
+            {
+                "id": 2,
+                "title": "Bravo",
+                "description": "Bravo description",
+                "bm25_rank": 2,
+                "semantic_rank": 1,
+                "rrf_score": 0.0325,
+                "rerank_score": 9.0,
+            }
+        ]
+
+        with (
+            patch("cli.lib.hybrid_search.load_movies", return_value=[]),
+            patch("cli.lib.hybrid_search.HybridSearch") as hybrid_search_class,
+            patch(
+                "cli.lib.hybrid_search.enhance_query",
+                return_value="enhanced family movies",
+            ),
+            patch(
+                "cli.lib.hybrid_search.rerank",
+                return_value=reranked_results,
+            ),
+            self.assertLogs(RRF_DEBUG_LOGGER_NAME, level="DEBUG") as logs,
+        ):
+            hybrid_search_class.return_value.rrf_search.return_value = fused_results
+            rrf_search_command(
+                "family movies",
+                k=30,
+                enhance="rewrite",
+                rerank_method="individual",
+                limit=2,
+                debug=True,
+            )
+
+        log_output = "\n".join(logs.output)
+        self.assertIn("Original query: family movies", log_output)
+        self.assertIn(
+            "Query after enhancement (rewrite): enhanced family movies",
+            log_output,
+        )
+        self.assertIn("Results after RRF search:", log_output)
+        self.assertIn(
+            "1. Bravo, rrf=0.033, bm25_rank=2, semantic_rank=1",
+            log_output,
+        )
+        self.assertIn("Final results after reranking (individual):", log_output)
+        self.assertIn("rerank_score=9.000", log_output)
 
 
 class BatchRerankTests(unittest.TestCase):

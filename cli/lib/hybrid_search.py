@@ -1,3 +1,4 @@
+import logging
 from typing import Literal
 
 from .keyword_search import InvertedIndex
@@ -18,6 +19,9 @@ from .search_utils import (
     Movie,
     load_movies,
 )
+
+RRF_DEBUG_LOGGER_NAME = "rag_search.rrf_pipeline"
+logger = logging.getLogger(RRF_DEBUG_LOGGER_NAME)
 
 
 def normalize_scores(scores: list[float]) -> list[float]:
@@ -219,6 +223,31 @@ def normalize_command(nums: list[float]) -> None:
         print(f"* {score:.4f}")
 
 
+def format_rrf_debug_results(results: list[HybridRankResult]) -> str:
+    if len(results) == 0:
+        return "  (no results)"
+
+    lines: list[str] = []
+    for index, result in enumerate(results, start=1):
+        summary = [
+            f"{index}. {result['title']}",
+            f"rrf={result['rrf_score']:.3f}",
+            f"bm25_rank={result['bm25_rank']}",
+            f"semantic_rank={result['semantic_rank']}",
+        ]
+        if "rerank_score" in result:
+            summary.append(f"rerank_score={result['rerank_score']:.3f}")
+        if "rerank_rank" in result:
+            summary.append(f"rerank_rank={result['rerank_rank']}")
+        if "rerank_cross_score" in result:
+            summary.append(
+                f"rerank_cross_score={result['rerank_cross_score']:.3f}"
+            )
+        lines.append("  " + ", ".join(summary))
+
+    return "\n".join(lines)
+
+
 def weighted_search_command(
     query: str,
     alpha: float = DEFAULT_ALPHA,
@@ -234,21 +263,55 @@ def rrf_search_command(
     enhance: Literal["spell", "rewrite", "expand"] | None = None,
     rerank_method: Literal["individual", "batch", "cross_encoder"] | None = None,
     limit: int = DEFAULT_SEARCH_LIMIT,
+    debug: bool = False,
 ) -> RRFSearchCommandResult:
     search = HybridSearch(load_movies())
     original_query = query
     enhanced_query = None
+
+    if debug:
+        logger.debug("Original query: %s", original_query)
+
     if enhance:
         enhanced_query = enhance_query(query, enhance)
         query = enhanced_query
 
+    if debug:
+        if enhanced_query is None:
+            logger.debug("Query after enhancement: %s (unchanged)", query)
+        else:
+            logger.debug(
+                "Query after enhancement (%s): %s",
+                enhance,
+                query,
+            )
+
     search_limit = limit * RERANK_RESULT_MULTIPLIER if rerank_method else limit
     results = search.rrf_search(query, k, search_limit)
+
+    if debug:
+        logger.debug(
+            "Results after RRF search:\n%s",
+            format_rrf_debug_results(results),
+        )
 
     reranked = False
     if rerank_method:
         results = rerank(query, results, rerank_method, limit)
         reranked = True
+
+    if debug:
+        if rerank_method is None:
+            logger.debug(
+                "Final results after reranking: skipped\n%s",
+                format_rrf_debug_results(results),
+            )
+        else:
+            logger.debug(
+                "Final results after reranking (%s):\n%s",
+                rerank_method,
+                format_rrf_debug_results(results),
+            )
 
     return {
         "original_query": original_query,

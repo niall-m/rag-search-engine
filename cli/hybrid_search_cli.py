@@ -1,6 +1,8 @@
 import argparse
+import logging
 
 from lib.hybrid_search import (
+    RRF_DEBUG_LOGGER_NAME,
     normalize_command,
     weighted_search_command,
     rrf_search_command,
@@ -79,8 +81,26 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["individual", "batch", "cross_encoder"],
         help="Re-rank method",
     )
+    rrf_search_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print debug logging for each RRF pipeline stage",
+    )
 
     return parser
+
+
+def configure_debug_logging() -> None:
+    logger = logging.getLogger(RRF_DEBUG_LOGGER_NAME)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    if logger.handlers:
+        return
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
 
 
 def run_command(args: argparse.Namespace) -> None:
@@ -99,12 +119,16 @@ def run_command(args: argparse.Namespace) -> None:
                 )
                 print(f"  {result['description'][:DOCUMENT_PREVIEW_LENGTH]}...")
         case "rrf-search":
+            if args.debug:
+                configure_debug_logging()
+
             result = rrf_search_command(
                 args.query,
                 args.k,
                 args.enhance,
                 args.rerank_method,
                 args.limit,
+                args.debug,
             )
 
             if result["enhanced_query"]:
