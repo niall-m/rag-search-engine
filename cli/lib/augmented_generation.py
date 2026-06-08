@@ -47,3 +47,27 @@ Answer:"""
         "search_results": search_results,
         "llm_response": response_text,
     }
+
+def summarize_command(query: str, limit: int = DEFAULT_SEARCH_LIMIT):
+    search = HybridSearch(load_movies())
+    search_results = search.rrf_search(query, limit=limit)
+    client = create_client()
+    prompt = f"""Provide information useful to the query below by synthesizing data from multiple search results in detail.
+
+The goal is to provide comprehensive information so that users know what their options are.
+Your response should be information-dense and concise, with several key pieces of information about the genre, plot, etc. of each movie.
+
+This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+
+Query: {query}
+
+Search results:
+{search_results}
+
+Provide a comprehensive 3–4 sentence answer that combines information from multiple sources:"""
+    response = client.models.generate_content(model=MODEL, contents=prompt)
+    response_text = (response.text or "").strip()
+    return {
+        "search_results": search_results,
+        "llm_response": response_text,
+    }
