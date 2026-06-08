@@ -101,3 +101,29 @@ Answer:"""
         "search_results": search_results,
         "llm_response": response_text,
     }
+
+
+def question_command(question: str, limit: int = DEFAULT_SEARCH_LIMIT):
+    search = HybridSearch(load_movies())
+    search_results = search.rrf_search(question, limit=limit)
+    client = create_client()
+    prompt = f"""Answer the user's question based on the provided movies that are available on Hoopla, a streaming service.
+
+Question: {question}
+
+Documents:
+{search_results}
+
+Instructions:
+- Answer questions directly and concisely
+- Be casual and conversational
+- Don't be cringe or hype-y
+- Talk like a normal person would in a chat conversation
+
+Answer:"""
+    response = client.models.generate_content(model=MODEL, contents=prompt)
+    response_text = (response.text or "").strip()
+    return {
+        "search_results": search_results,
+        "llm_response": response_text,
+    }
