@@ -98,6 +98,13 @@ class RRFSearchCommandResult(TypedDict):
     results: list[HybridRankResult]
 
 
+class MultiModalResult(TypedDict):
+    id: int
+    title: str
+    description: str
+    similarity_score: float
+
+
 def load_movies() -> list[Movie]:
     with MOVIES_DATA_PATH.open("r", encoding="utf-8") as movies_file:
         data = json.load(movies_file)
